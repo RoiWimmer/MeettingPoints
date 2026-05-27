@@ -243,6 +243,8 @@ body.chatbot-page .top-bar > a {
 
 /* Reports Table Styles */
 .reports-filter { background: white; padding: 20px; border-radius: 20px; display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end; }
+body.reports-page .advanced-filter-toggle { display: none; }
+body.reports-page .reports-advanced-filters { display: contents; }
 .filter-item { display: flex; flex-direction: column; gap: 5px; }
 .filter-item input, .filter-item select { padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; }
 .report-list { background: white; border-radius: 20px; padding: 10px; }
@@ -350,7 +352,7 @@ body.chatbot-page .top-bar > a {
         gap: 4px;
     }
 
-    body.reports-page .filter-item:first-child {
+    body.reports-page .reports-filter > .filter-item:first-child {
         grid-column: 1 / -1;
     }
 
@@ -391,7 +393,40 @@ body.chatbot-page .top-bar > a {
         line-height: 1.2;
     }
 
-    body.reports-page .reports-filter > button:not(.help-icon) {
+    body.reports-page .advanced-filter-toggle {
+        grid-column: 1 / -1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        height: 42px;
+        padding: 0 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: white;
+        color: #334155;
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    body.reports-page .advanced-filter-toggle-icon {
+        transition: transform 0.16s ease;
+    }
+
+    body.reports-page .advanced-filter-toggle[aria-expanded="true"] .advanced-filter-toggle-icon {
+        transform: rotate(180deg);
+    }
+
+    body.reports-page .reports-advanced-filters {
+        display: contents;
+    }
+
+    body.reports-page .reports-advanced-filters.is-collapsed {
+        display: none;
+    }
+
+    body.reports-page .reports-advanced-filters > button:not(.help-icon) {
         height: 44px;
         min-height: 0;
         max-height: 44px;
@@ -405,7 +440,7 @@ body.chatbot-page .top-bar > a {
         justify-content: center;
     }
 
-    body.reports-page .reports-filter > .help-icon {
+    body.reports-page .reports-advanced-filters > .help-icon {
         grid-column: auto;
         width: 34px;
         height: 34px;
@@ -1377,8 +1412,9 @@ body.chatbot-page .top-bar > a {
 
     body.reports-page .filter-item input,
     body.reports-page .filter-item select,
-    body.reports-page .reports-filter > button:not(.help-icon),
-    body.reports-page .reports-filter > .help-icon {
+    body.reports-page .advanced-filter-toggle,
+    body.reports-page .reports-advanced-filters > button:not(.help-icon),
+    body.reports-page .reports-advanced-filters > .help-icon {
         height: 42px;
         max-height: 42px;
     }
@@ -1387,7 +1423,7 @@ body.chatbot-page .top-bar > a {
         font-size: 0.88rem;
     }
 
-    body.reports-page .reports-filter > .help-icon {
+    body.reports-page .reports-advanced-filters > .help-icon {
         width: 32px;
         min-width: 32px;
         height: 32px;
@@ -1571,13 +1607,14 @@ body.chatbot-page .top-bar > a {
     }
 
     body.reports-page .filter-item,
-    body.reports-page .filter-item:first-child,
+    body.reports-page .reports-filter > .filter-item:first-child,
     body.reports-page .filter-item:nth-of-type(6),
-    body.reports-page .reports-filter > button:not(.help-icon) {
+    body.reports-page .advanced-filter-toggle,
+    body.reports-page .reports-advanced-filters > button:not(.help-icon) {
         grid-column: 1;
     }
 
-    body.reports-page .reports-filter > .help-icon {
+    body.reports-page .reports-advanced-filters > .help-icon {
         grid-column: 1;
     }
 }
