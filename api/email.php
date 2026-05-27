@@ -109,7 +109,7 @@ function createEmailStatusToken($reportId, $status)
 
 function createEmailStatusLink($reportId, $status)
 {
-    $baseUrl = 'http://isroiwi.mtacloud.co.il/Meetting_Points/api/update_status_from_email.php';
+    $baseUrl = 'http://isroiwi.mtacloud.co.il/main/Meetting_Points_AI/api/update_status_from_email.php';
 
     $token = createEmailStatusToken($reportId, $status);
 
