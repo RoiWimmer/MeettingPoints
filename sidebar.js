@@ -59,7 +59,7 @@
   function normalizedRole(user) {
     if (!user) return null;
     if (user.role === 'manager' || user.role_key === 'ngo_manager') return 'manager';
-    return user.role || null;
+    return user.role || user.role_key || null;
   }
 
   function itemAllowed(item, user) {
@@ -258,9 +258,30 @@
       width: savedWidth()
     });
 
-    toggle?.addEventListener('click', () => {
+    toggle?.addEventListener('click', event => {
+      event.stopPropagation();
       setCollapsed(sidebar, !sidebar.classList.contains('is-collapsed'));
     });
+
+    if (sidebar.dataset.mobileCloseBound !== 'true') {
+      sidebar.dataset.mobileCloseBound = 'true';
+      sidebar.addEventListener('click', event => {
+        const navLink = event.target.closest('.nav-link');
+        if (navLink && isSmallScreen()) {
+          setCollapsed(sidebar, true, { silent: true });
+        }
+      });
+    }
+
+    if (sidebar.dataset.mobileOutsideBound !== 'true') {
+      sidebar.dataset.mobileOutsideBound = 'true';
+      document.addEventListener('pointerdown', event => {
+        if (!isSmallScreen() || sidebar.classList.contains('is-collapsed')) return;
+        if (!sidebar.contains(event.target)) {
+          setCollapsed(sidebar, true, { silent: true });
+        }
+      });
+    }
 
     handle?.addEventListener('pointerdown', event => {
       if (isSmallScreen()) return;
@@ -370,7 +391,10 @@
 
   function redirectToLogin() {
     const filename = currentFilename();
-    if (filename === 'login.html') return;
+
+    if (filename === 'login.html') {
+      return;
+    }
     const next = encodeURIComponent(window.location.pathname.split('/').pop() + window.location.search + window.location.hash);
     window.location.href = `login.html?next=${next}`;
   }
@@ -435,7 +459,10 @@
       loadCurrentUser().then(user => {
         redirectIfPageForbidden(user);
         renderSidebar();
-        if (user) ensureSupportChatbotAssets();
+
+        if (user) {
+          ensureSupportChatbotAssets();
+        }
       });
     });
   } else {
@@ -443,9 +470,197 @@
     loadCurrentUser().then(user => {
       redirectIfPageForbidden(user);
       renderSidebar();
-      if (user) ensureSupportChatbotAssets();
+
+      if (user) {
+        ensureSupportChatbotAssets();
+      }
     });
   }
 
   window.addEventListener('hashchange', updateActive);
+})();
+
+(function () {
+  let notificationCheckStarted = false;
+
+  async function runReportStatusAlertCheck() {
+    try {
+      await fetch('./api/check_report_status_alerts.php', {
+        method: 'POST',
+        cache: 'no-store'
+      });
+    } catch (error) {
+      console.error('REPORT STATUS ALERT CHECK ERROR:', error);
+    }
+  }
+
+  async function loadVolunteerNotifications() {
+    if (notificationCheckStarted) {
+      return;
+    }
+
+    notificationCheckStarted = true;
+
+    try {
+      await runReportStatusAlertCheck();
+
+      const response = await fetch('./api/volunteer_notifications.php', {
+        cache: 'no-store'
+      });
+
+      const data = await response.json();
+
+      if (!data.success || !data.notifications || data.notifications.length === 0) {
+        return;
+      }
+
+      showVolunteerNotificationPopup(data.notifications);
+    } catch (error) {
+      console.error('VOLUNTEER NOTIFICATIONS LOAD ERROR:', error);
+    }
+  }
+
+  function showVolunteerNotificationPopup(notifications) {
+    const oldPopup = document.getElementById('volunteerNotificationPopup');
+
+    if (oldPopup) {
+      oldPopup.remove();
+    }
+
+    const popup = document.createElement('div');
+    popup.id = 'volunteerNotificationPopup';
+
+    popup.style.position = 'fixed';
+    popup.style.left = '24px';
+    popup.style.bottom = '24px';
+    popup.style.zIndex = '999999';
+    popup.style.width = 'min(430px, calc(100vw - 48px))';
+    popup.style.maxHeight = '70vh';
+    popup.style.overflowY = 'auto';
+    popup.style.background = '#ffffff';
+    popup.style.border = '1px solid #fed7aa';
+    popup.style.borderRadius = '20px';
+    popup.style.boxShadow = '0 20px 45px rgba(15, 23, 42, 0.25)';
+    popup.style.padding = '18px';
+    popup.style.direction = 'rtl';
+    popup.style.fontFamily = 'Assistant, Arial, sans-serif';
+
+    const notificationsHtml = notifications.map(function (notification) {
+      return `
+        <div style="background:#fff7ed; border:1px solid #ffedd5; border-radius:14px; padding:12px; margin-top:10px;">
+          <div style="font-weight:800; color:#9a3412; margin-bottom:6px;">
+            ${escapeNotificationHtml(notification.title || 'התראה חדשה')}
+          </div>
+
+          <div style="color:#334155; line-height:1.5; font-weight:700;">
+            ${escapeNotificationHtml(notification.message || '')}
+          </div>
+
+          <div style="color:#64748b; font-size:0.9rem; margin-top:6px;">
+            ${escapeNotificationHtml(notification.created_at || '')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    popup.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <strong style="font-size:1.15rem; color:#1e293b;">התראות חשובות</strong>
+
+        <button type="button" id="closeVolunteerNotificationPopup"
+          style="border:none; background:#f1f5f9; color:#334155; border-radius:999px; width:30px; height:30px; cursor:pointer; font-weight:800;">
+          ×
+        </button>
+      </div>
+
+      <div style="color:#64748b; font-weight:700; margin-top:6px;">
+        יש דיווחים שממתינים יותר משבוע ודורשים בדיקה.
+      </div>
+
+      ${notificationsHtml}
+
+      <button type="button" id="markVolunteerNotificationsRead"
+        style="margin-top:14px; width:100%; border:none; background:#f1a340; color:white; padding:11px 16px; border-radius:14px; cursor:pointer; font-weight:800;">
+        הבנתי
+      </button>
+    `;
+
+    document.body.appendChild(popup);
+
+    async function closeAndMarkRead() {
+      try {
+        await fetch('./api/volunteer_notifications.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            action: 'mark_all_read'
+          })
+        });
+      } catch (error) {
+        console.error('MARK NOTIFICATIONS READ ERROR:', error);
+      }
+
+      popup.remove();
+    }
+
+    document.getElementById('closeVolunteerNotificationPopup').addEventListener('click', closeAndMarkRead);
+    document.getElementById('markVolunteerNotificationsRead').addEventListener('click', closeAndMarkRead);
+  }
+
+  function escapeNotificationHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  async function startNotificationCheckWhenReady() {
+    setTimeout(async function () {
+      let user = window.HiburimCurrentUser || null;
+
+      if (!user && window.HiburimSidebar && typeof window.HiburimSidebar.getCurrentUser === 'function') {
+        user = await window.HiburimSidebar.getCurrentUser();
+      }
+
+      if (!user) {
+        return;
+      }
+
+      const role = user.role_key || user.role;
+
+      if (role === 'volunteer') {
+        loadVolunteerNotifications();
+      } else {
+        runReportStatusAlertCheck();
+      }
+    }, 1200);
+  }
+
+  window.addEventListener('hiburim:user-ready', function (event) {
+    const user = event.detail;
+
+    if (!user) {
+      return;
+    }
+
+    const role = user.role_key || user.role;
+
+    if (role === 'volunteer') {
+      startNotificationCheckWhenReady();
+    } else {
+      runReportStatusAlertCheck();
+    }
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      startNotificationCheckWhenReady();
+    });
+  } else {
+    startNotificationCheckWhenReady();
+  }
 })();

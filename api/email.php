@@ -225,34 +225,42 @@ function sendReportStatusChangedEmail($details)
 
 function sendReportFollowUpReminderEmail($details)
 {
-    $subject = 'תזכורת טיפול בדיווח #' . ($details['report_id'] ?? '') . ' - נקודות חיבור';
+    $reportId = $details['report_id'] ?? '';
+    $currentStatus = $details['current_status'] ?? 'בטיפול';
+    $statusSince = $details['status_since'] ?? ($details['in_progress_since'] ?? '');
+    $daysInStatus = $details['days_in_status'] ?? '';
+    $alertMessage = $details['alert_message'] ?? '';
 
-    $textBody = "תזכורת: דיווח נמצא בסטטוס בטיפול כבר מעל שבוע.\n\n";
-    $textBody .= "מספר דיווח: " . ($details['report_id'] ?? '') . "\n";
-    $textBody .= "סטטוס נוכחי: בטיפול\n";
-    $textBody .= "בתהליך מאז: " . ($details['in_progress_since'] ?? '') . "\n";
+    $subject = 'תזכורת סטטוס לדיווח #' . $reportId . ' - נקודות חיבור';
+
+    $textBody = "תזכורת לטיפול בדיווח במערכת.\n\n";
+    $textBody .= "מספר דיווח: " . $reportId . "\n";
+    $textBody .= "סטטוס נוכחי: " . $currentStatus . "\n";
+    $textBody .= "בסטטוס מאז: " . $statusSince . "\n";
+    $textBody .= "מספר ימים בסטטוס: " . $daysInStatus . "\n";
     $textBody .= "מספר מתנדב: " . ($details['volunteer_id'] ?? '') . "\n";
     $textBody .= "מספר קשיש: " . ($details['elderly_id'] ?? '') . "\n";
     $textBody .= "דחיפות: " . ($details['urgency'] ?? '') . "\n";
     $textBody .= "תאריך יצירת הדיווח: " . ($details['created_at'] ?? '') . "\n\n";
-    $textBody .= "נדרש לבדוק האם חלה התקדמות בטיפול ולעדכן את הסטטוס במערכת.\n\n";
+    $textBody .= "הודעה:\n" . $alertMessage . "\n\n";
     $textBody .= "תוכן הדיווח:\n";
     $textBody .= ($details['description'] ?? '');
 
     $htmlBody = '
     <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.7; color: #1e293b;">
-        <h2>תזכורת טיפול בדיווח #' . htmlspecialchars($details['report_id'] ?? '', ENT_QUOTES, 'UTF-8') . '</h2>
+        <h2>תזכורת סטטוס לדיווח #' . htmlspecialchars($reportId, ENT_QUOTES, 'UTF-8') . '</h2>
 
-        <p>דיווח נמצא בסטטוס <strong>בטיפול</strong> כבר מעל שבוע.</p>
+        <p>' . htmlspecialchars($alertMessage, ENT_QUOTES, 'UTF-8') . '</p>
 
         <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:14px; padding:16px;">
-            <strong>בתהליך מאז:</strong> ' . htmlspecialchars($details['in_progress_since'] ?? '', ENT_QUOTES, 'UTF-8') . '<br>
+            <strong>סטטוס נוכחי:</strong> ' . htmlspecialchars($currentStatus, ENT_QUOTES, 'UTF-8') . '<br>
+            <strong>בסטטוס מאז:</strong> ' . htmlspecialchars($statusSince, ENT_QUOTES, 'UTF-8') . '<br>
+            <strong>מספר ימים בסטטוס:</strong> ' . htmlspecialchars($daysInStatus, ENT_QUOTES, 'UTF-8') . '<br>
             <strong>מספר מתנדב:</strong> ' . htmlspecialchars($details['volunteer_id'] ?? '', ENT_QUOTES, 'UTF-8') . '<br>
             <strong>מספר קשיש:</strong> ' . htmlspecialchars($details['elderly_id'] ?? '', ENT_QUOTES, 'UTF-8') . '<br>
-            <strong>דחיפות:</strong> ' . htmlspecialchars($details['urgency'] ?? '', ENT_QUOTES, 'UTF-8') . '
+            <strong>דחיפות:</strong> ' . htmlspecialchars($details['urgency'] ?? '', ENT_QUOTES, 'UTF-8') . '<br>
+            <strong>תאריך יצירת הדיווח:</strong> ' . htmlspecialchars($details['created_at'] ?? '', ENT_QUOTES, 'UTF-8') . '
         </div>
-
-        <p>נדרש לבדוק האם חלה התקדמות בטיפול ולעדכן את הסטטוס במערכת.</p>
 
         <p><strong>תוכן הדיווח:</strong></p>
         <div style="white-space: pre-line; background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:14px;">

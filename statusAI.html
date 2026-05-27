@@ -1184,6 +1184,353 @@
       .report-head { flex-direction: column; }
     }
 
+    @media (max-width: 768px) {
+      html,
+      body.status-ai-page {
+        max-width: 100%;
+        overflow-x: hidden;
+      }
+
+      body.status-ai-page {
+        min-height: 100dvh;
+        background: var(--light-bg);
+      }
+
+      body.status-ai-page .dashboard-wrapper {
+        display: block;
+        width: 100%;
+        min-height: 100dvh;
+      }
+
+      body.status-ai-page .main-content {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 64px 12px 18px;
+      }
+
+      body.status-ai-page .top-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      body.status-ai-page .welcome-text {
+        min-width: 0;
+      }
+
+      body.status-ai-page .welcome-text h1 {
+        margin: 0 0 6px;
+        font-size: 1.55rem;
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+
+      body.status-ai-page .welcome-text p {
+        display: -webkit-box;
+        margin: 0;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        font-size: 0.95rem;
+        line-height: 1.42;
+      }
+
+      body.status-ai-page :is(.title-with-help, .section-title-with-help) {
+        gap: 7px;
+        line-height: 1.25;
+      }
+
+      body.status-ai-page .help-icon {
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        font-size: 0.8rem;
+      }
+
+      body.status-ai-page .header-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 44px;
+        width: 100%;
+        gap: 8px;
+      }
+
+      body.status-ai-page .header-actions .select {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+      }
+
+      body.status-ai-page .header-actions > .help-icon {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+      }
+
+      body.status-ai-page .header-actions .btn {
+        grid-column: 1 / -1;
+        width: 100%;
+        min-height: 44px;
+      }
+
+      body.status-ai-page .tabs {
+        width: 100%;
+        max-width: 100%;
+        margin-bottom: 14px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding: 6px;
+        border-radius: 16px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+
+      body.status-ai-page .tabs::-webkit-scrollbar {
+        display: none;
+      }
+
+      body.status-ai-page .tab-btn {
+        flex: 0 0 auto;
+        min-height: 42px;
+        padding: 9px 12px;
+        white-space: nowrap;
+      }
+
+      body.status-ai-page :is(.card, .overview-ai-card, .overview-chart-card, .overview-insight-card, .insight-card, .generated-report, .report-chart) {
+        max-width: 100%;
+        border-radius: 16px;
+      }
+
+      body.status-ai-page :is(.card, .overview-chart-card, .overview-ai-card, .overview-insight-card, .insight-card) {
+        padding: 14px;
+      }
+
+      body.status-ai-page .overview-ai-card {
+        margin-bottom: 14px;
+      }
+
+      body.status-ai-page .overview-ai-input-wrapper {
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      body.status-ai-page .overview-ai-field {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        padding: 11px 12px;
+      }
+
+      body.status-ai-page .overview-gen-btn {
+        width: 100%;
+        min-height: 46px;
+      }
+
+      body.status-ai-page .overview-stats-grid,
+      body.status-ai-page .stats-grid,
+      body.status-ai-page .report-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      body.status-ai-page .overview-stat-card,
+      body.status-ai-page .stat-card {
+        min-width: 0;
+        min-height: 92px;
+        padding: 14px;
+        border-radius: 16px;
+      }
+
+      body.status-ai-page .stat-value,
+      body.status-ai-page .overview-stat-info h3 {
+        font-size: 1.55rem;
+        letter-spacing: 0;
+      }
+
+      body.status-ai-page :is(.overview-charts-grid, .overview-insight-grid, .grid-2, .grid-3, .resource-grid, .report-sections, .ai-layout, .suggestions, .prompt-controls) {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      body.status-ai-page .overview-charts-grid {
+        margin-bottom: 14px;
+      }
+
+      body.status-ai-page .overview-chart-card {
+        min-height: auto;
+      }
+
+      body.status-ai-page .overview-chart-card canvas {
+        max-height: 230px;
+      }
+
+      body.status-ai-page .card-header {
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      body.status-ai-page .card-title {
+        font-size: 1.12rem;
+        line-height: 1.3;
+      }
+
+      body.status-ai-page .card-subtitle {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+
+      body.status-ai-page .donut-wrap {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        gap: 12px;
+        min-height: 0;
+      }
+
+      body.status-ai-page .donut {
+        width: 150px;
+        height: 150px;
+      }
+
+      body.status-ai-page .legend {
+        width: 100%;
+      }
+
+      body.status-ai-page .bar-row {
+        grid-template-columns: 86px minmax(0, 1fr) 30px;
+        gap: 8px;
+      }
+
+      body.status-ai-page .bar-label {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+
+      body.status-ai-page .attention-table {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      body.status-ai-page .filters-row {
+        gap: 8px;
+      }
+
+      body.status-ai-page .filters-row .select {
+        width: 100%;
+        min-height: 44px;
+      }
+
+      body.status-ai-page :is(.select, .input, .textarea) {
+        width: 100%;
+        min-width: 0;
+        font-size: 1rem;
+      }
+
+      body.status-ai-page .textarea {
+        min-height: 124px;
+      }
+
+      body.status-ai-page .btn,
+      body.status-ai-page .suggestion {
+        min-height: 44px;
+      }
+
+      body.status-ai-page .suggestion {
+        border-radius: 14px;
+        padding: 12px;
+      }
+
+      body.status-ai-page .report-head,
+      body.status-ai-page .report-body {
+        padding: 14px;
+      }
+
+      body.status-ai-page .report-head {
+        flex-direction: column;
+      }
+
+      body.status-ai-page .report-head h2 {
+        font-size: 1.28rem;
+        line-height: 1.25;
+      }
+
+      body.status-ai-page .mini-kpi {
+        border-radius: 14px;
+        padding: 12px;
+      }
+
+      body.status-ai-page .clean-list li {
+        border-radius: 12px;
+      }
+
+      body.status-ai-page .report-actions .btn {
+        flex: 1 1 150px;
+      }
+
+      body.status-ai-page .loading-box {
+        align-items: flex-start;
+        border-radius: 16px;
+      }
+
+      body.status-ai-page .toast {
+        left: 12px;
+        right: 12px;
+        bottom: calc(14px + env(safe-area-inset-bottom));
+        text-align: center;
+      }
+
+      body.status-ai-page .data-source-message {
+        margin-bottom: 12px;
+        border-radius: 14px;
+        line-height: 1.45;
+      }
+
+      body.status-ai-page .mobile-nav {
+        display: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body.status-ai-page .main-content {
+        padding-inline: 8px;
+      }
+
+      body.status-ai-page .welcome-text h1 {
+        font-size: 1.42rem;
+      }
+
+      body.status-ai-page .welcome-text p {
+        -webkit-line-clamp: 1;
+      }
+
+      body.status-ai-page .overview-stats-grid,
+      body.status-ai-page .stats-grid,
+      body.status-ai-page .report-kpis {
+        grid-template-columns: 1fr;
+      }
+
+      body.status-ai-page .overview-chart-card canvas {
+        max-height: 210px;
+      }
+
+      body.status-ai-page .report-actions .btn {
+        flex-basis: 100%;
+        width: 100%;
+      }
+
+      body.status-ai-page .attention-table {
+        min-width: 0;
+      }
+    }
+
     @media print {
       body { background: white; }
       .sidebar, .mobile-nav, .tabs, .top-bar, .prompt-card, .history-panel, .filters-row, .toast, .loading-box, .no-print {
@@ -1200,7 +1547,7 @@
   <link rel="stylesheet" href="help-tooltips.css">
 </head>
 
-<body>
+<body class="status-ai-page">
   <div class="dashboard-wrapper">
     <aside class="sidebar" data-sidebar></aside>
 
@@ -2190,7 +2537,7 @@
         chartType: payload.chartType || 'bar',
         chartData: payload.chartData || {},
         sourceCount: payload.sourceCount || 0,
-        sourceData: getFilteredReports(filters.range, filters.area)
+        sourceData: Array.isArray(payload.sourceData) ? payload.sourceData : []
       };
     }
 

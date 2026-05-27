@@ -199,6 +199,318 @@ function aiFilterReports($reports, $filters) {
     return $filtered;
 }
 
+function aiTextLower($value) {
+    $text = trim((string)$value);
+
+    return function_exists("mb_strtolower") ? mb_strtolower($text, "UTF-8") : strtolower($text);
+}
+
+function aiNormalizeTopicText($value) {
+    $text = aiTextLower($value);
+    $text = preg_replace('/[\x{0591}-\x{05C7}]/u', '', $text);
+    $text = preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $text);
+    $text = preg_replace('/\s+/u', ' ', $text);
+
+    return trim($text);
+}
+
+function aiExtractTopicTokens($topic) {
+    $normalized = aiNormalizeTopicText($topic);
+
+    if ($normalized === "") {
+        return [];
+    }
+
+    $stopwords = [
+        "את", "כל", "של", "על", "אל", "עם", "או", "ו", "ה", "ל", "ב", "מ", "ש",
+        "דוח", "דוחות", "דיווח", "דיווחים", "סכם", "סיכום", "תן", "לי", "צור",
+        "קשור", "קשורה", "קשורים", "קשורות", "שקשור", "שקשורים", "שקשורות",
+        "בנושא", "נושא", "לנושא", "לפי", "בעיות", "בעיה", "מקרים", "מקרה",
+        "קשישים", "קשיש", "קשישה", "מרגישים", "מרגיש", "מרגישה", "מצב", "אזור",
+        "האזור", "בתקופה", "התקופה", "האחרון", "האחרונה", "חודש", "חודשי"
+    ];
+
+    $tokens = preg_split('/\s+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY);
+    $tokens = array_values(array_filter($tokens, function ($token) use ($stopwords) {
+        return function_exists("mb_strlen")
+            ? mb_strlen($token, "UTF-8") >= 2 && !in_array($token, $stopwords, true)
+            : strlen($token) >= 2 && !in_array($token, $stopwords, true);
+    }));
+
+    return array_values(array_unique($tokens));
+}
+
+function aiCanonicalTopicFromText($text) {
+    $normalized = aiNormalizeTopicText($text);
+    $knownTopics = [
+        "בדידות" => '/בדיד|בודד|בודדה|בודדים|לבד|בודדות|חברה|חברתי|קשר חברתי|תמיכה רגשית|שיחה|ביקור/u',
+        "בעיה תחזוקתית בבית" => '/תחזוק|תיקון|נזילה|חלון|דוד|מנעול|מקרר|חשמל|מים|בית|צנרת|רטיבות/u',
+        "בעיה רפואית" => '/רפוא|בריאות|תרופה|תרופות|מרשם|רופא|בדיקה|כאב|חולה|מחלה|דמנציה|זיכרון|זכרון|בלבול/u',
+        "מזון" => '/מזון|אוכל|ארוחה|קניות|מצרכים|סל מזון/u',
+        "בטיחות" => '/בטיחות|סכנה|חירום|גז|שריפה|עשן|נפילה|הצפה|חשמל חשוף/u',
+        "ליווי רפואי" => '/ליווי|הסעה|תור|מרפאה|קופת חולים/u',
+        "סיוע מול רשויות" => '/רשויות|ביטוח לאומי|טופס|זכויות|חשבון|בירוקרט/u'
+    ];
+
+    foreach ($knownTopics as $topic => $pattern) {
+        if (preg_match($pattern, $normalized)) {
+            return $topic;
+        }
+    }
+
+    return null;
+}
+
+function aiDetectTopicFromPrompt($userPrompt) {
+    $prompt = aiNormalizeTopicText($userPrompt);
+
+    if ($prompt === "") {
+        return null;
+    }
+
+    $canonicalTopic = aiCanonicalTopicFromText($prompt);
+
+    if ($canonicalTopic) {
+        return $canonicalTopic;
+    }
+
+    $generalPatterns = [
+        '/תקציר מנהלים/u',
+        '/מצב הדיווחים/u',
+        '/סטטוסים פתוחים/u',
+        '/צרכים נפוצים/u',
+        '/חוסרי משאבים/u',
+        '/חריגים ודחופים/u',
+        '/תמונת מצב/u',
+        '/סיכום כללי/u',
+        '/דוח חודשי/u',
+        '/דוח שבועי/u'
+    ];
+
+    foreach ($generalPatterns as $pattern) {
+        if (preg_match($pattern, $prompt)) {
+            return null;
+        }
+    }
+
+    $topicPatterns = [
+        '/(?:שקשור(?:ים|ות)?|קשור(?:ים|ות)?|הקשור(?:ים|ות)?)\s+ל(.+)$/u',
+        '/(?:בנושא|לנושא|על אודות|אודות|על)\s+(.+)$/u',
+        '/(?:בעיות|מקרים)\s+(.+)$/u'
+    ];
+
+    foreach ($topicPatterns as $pattern) {
+        if (preg_match($pattern, $prompt, $matches)) {
+            $tokens = aiExtractTopicTokens($matches[1] ?? "");
+
+            if ($tokens) {
+                return implode(" ", array_slice($tokens, 0, 4));
+            }
+        }
+    }
+
+    return null;
+}
+
+function aiTopicTerms($topic) {
+    $terms = aiExtractTopicTokens($topic);
+    $canonicalTerms = [
+        "בדידות" => ["בדידות", "בדיד", "בודד", "בודדה", "בודדים", "לבד", "בודדות", "חוסר קשר", "קשר חברתי", "תמיכה רגשית", "שיחה", "ביקור", "חברה", "חברתי"],
+        "בעיה תחזוקתית בבית" => ["תחזוקה", "תחזוק", "תחזוקתית", "תיקון", "נזילה", "חלון", "דוד", "מנעול", "מקרר", "חשמל", "מים", "בית", "צנרת", "רטיבות"],
+        "בעיה רפואית" => ["רפואי", "רפואית", "רפוא", "בריאות", "תרופה", "תרופות", "מרשם", "רופא", "בדיקה", "כאב", "חולה", "מחלה", "דמנציה", "זיכרון", "זכרון", "בלבול"],
+        "מזון" => ["מזון", "אוכל", "ארוחה", "קניות", "מצרכים", "סל מזון"],
+        "בטיחות" => ["בטיחות", "סכנה", "חירום", "גז", "שריפה", "עשן", "נפילה", "הצפה", "חשמל חשוף"],
+        "ליווי רפואי" => ["ליווי", "הסעה", "תור", "מרפאה", "קופת חולים"],
+        "סיוע מול רשויות" => ["רשויות", "ביטוח לאומי", "טופס", "זכויות", "חשבון", "בירוקרטיה", "בירוקרט"]
+    ];
+
+    if (isset($canonicalTerms[$topic])) {
+        $terms = array_merge($terms, $canonicalTerms[$topic]);
+    }
+
+    return array_values(array_unique(array_filter(array_map("aiNormalizeTopicText", $terms))));
+}
+
+function aiReportTopicText($report) {
+    $fields = [
+        "need_type",
+        "category",
+        "parsed_category",
+        "description",
+        "parsed_description",
+        "additional_details",
+        "parsed_additional_details",
+        "image_analysis",
+        "content"
+    ];
+    $parts = [];
+
+    foreach ($fields as $field) {
+        if (!empty($report[$field])) {
+            $parts[] = $report[$field];
+        }
+    }
+
+    return aiNormalizeTopicText(implode(" ", $parts));
+}
+
+function aiReportMatchesTopic($report, $topic, $terms) {
+    $text = aiReportTopicText($report);
+
+    if ($text === "") {
+        return false;
+    }
+
+    $score = 0;
+    $topicText = aiNormalizeTopicText($topic);
+
+    if ($topicText !== "" && preg_match('/(^|\s)' . preg_quote($topicText, '/') . '(\s|$)/u', $text)) {
+        $score += 3;
+    }
+
+    $categoryText = aiNormalizeTopicText(implode(" ", [
+        $report["need_type"] ?? "",
+        $report["category"] ?? "",
+        $report["parsed_category"] ?? ""
+    ]));
+
+    foreach ($terms as $term) {
+        if ($term === "") {
+            continue;
+        }
+
+        $termLength = function_exists("mb_strlen") ? mb_strlen($term, "UTF-8") : strlen($term);
+
+        if ($termLength < 2) {
+            continue;
+        }
+
+        if ($categoryText !== "" && strpos($categoryText, $term) !== false) {
+            $score += 3;
+            continue;
+        }
+
+        if (strpos($text, $term) !== false) {
+            $score += 1;
+        }
+    }
+
+    return $score >= 1;
+}
+
+function aiShortReportSummary($report) {
+    $summary = trim((string)($report["description"] ?? $report["parsed_description"] ?? $report["content"] ?? ""));
+    $summary = preg_replace('/\s+/u', ' ', $summary);
+
+    if (function_exists("mb_substr")) {
+        return mb_substr($summary, 0, 220, "UTF-8");
+    }
+
+    return substr($summary, 0, 220);
+}
+
+function aiBuildTopicFilterPrompt($userPrompt, $filters, $reports) {
+    $items = [];
+
+    foreach (array_slice(array_values($reports), 0, 140) as $report) {
+        $items[] = [
+            "id" => (int)($report["id"] ?? 0),
+            "need_type" => $report["need_type"] ?? ($report["category"] ?? ""),
+            "urgency" => $report["urgency"] ?? "",
+            "status" => $report["normalized_status"] ?? ($report["status"] ?? ""),
+            "created_at" => $report["created_at"] ?? "",
+            "area" => $report["area"] ?? "",
+            "summary" => aiShortReportSummary($report)
+        ];
+    }
+
+    $payload = [
+        "userPrompt" => $userPrompt,
+        "filters" => $filters,
+        "reports" => $items
+    ];
+
+    return "אתה מסנן דיווחים לפי בקשת נושא חופשית של מנהל עמותה.
+קבע האם בקשת המשתמש דורשת סינון נושאי. אם כן, החזר רק מזהי דיווחים שרלוונטיים לנושא המבוקש.
+אל תבחר דיווחים רק בגלל שהם באותו טווח זמן או אזור. השתמש רק בשדות המצומצמים שסופקו.
+ענה JSON תקין בלבד, בלי Markdown ובלי טקסט חיצוני.
+
+פורמט JSON חובה:
+{
+  \"applyFilter\": true,
+  \"topic\": \"...\",
+  \"matchingIds\": [1,2,3]
+}
+
+נתונים:
+" . json_encode($payload, JSON_UNESCAPED_UNICODE);
+}
+
+function aiApplyTopicFilter($reports, $userPrompt, $filters) {
+    $activeTopic = aiDetectTopicFromPrompt($userPrompt);
+
+    if (!$activeTopic) {
+        return [
+            "reports" => $reports,
+            "activeTopic" => null,
+            "topicFilterApplied" => false
+        ];
+    }
+
+    $terms = aiTopicTerms($activeTopic);
+    $filtered = array_values(array_filter($reports, function ($report) use ($activeTopic, $terms) {
+        return aiReportMatchesTopic($report, $activeTopic, $terms);
+    }));
+
+    if ($filtered) {
+        return [
+            "reports" => $filtered,
+            "activeTopic" => $activeTopic,
+            "topicFilterApplied" => true
+        ];
+    }
+
+    $gemini = aiCallGemini(aiBuildTopicFilterPrompt($userPrompt, $filters, $reports));
+
+    if (!empty($gemini["ok"])) {
+        $decision = aiDecodeJsonFromText($gemini["text"] ?? "");
+        $ids = is_array($decision) ? array_map("intval", (array)($decision["matchingIds"] ?? [])) : [];
+        $idLookup = array_fill_keys($ids, true);
+
+        if (is_array($decision) && !empty($decision["topic"])) {
+            $activeTopic = trim((string)$decision["topic"]);
+        }
+
+        $filtered = array_values(array_filter($reports, function ($report) use ($idLookup) {
+            return isset($idLookup[(int)($report["id"] ?? 0)]);
+        }));
+    } else {
+        error_log("AI REPORT TOPIC FILTER GEMINI FALLBACK: " . ($gemini["error"] ?? "unknown"));
+    }
+
+    return [
+        "reports" => $filtered,
+        "activeTopic" => $activeTopic,
+        "topicFilterApplied" => true
+    ];
+}
+
+function aiBuildSourceData($reports) {
+    return array_values(array_map(function ($report) {
+        return [
+            "id" => (int)($report["id"] ?? 0),
+            "createdAt" => substr((string)($report["created_at"] ?? ""), 0, 10),
+            "needType" => $report["need_type"] ?? ($report["category"] ?? "אחר"),
+            "area" => $report["area"] ?? "לא ידוע",
+            "urgency" => $report["urgency"] ?? "בינונית",
+            "status" => mpNormalizeStatus($report["normalized_status"] ?? ($report["status"] ?? "")),
+            "daysOpen" => (int)($report["days_open"] ?? 0),
+            "assignedOrg" => $report["assigned_org"] ?? null,
+            "hasResourceGap" => !empty($report["resource_gap"]) || !empty($report["has_resource_gap"])
+        ];
+    }, $reports));
+}
+
 function aiTopEntry($counts, $defaultLabel = "אין נתונים") {
     if (!$counts) {
         return [$defaultLabel, 0];
@@ -233,7 +545,7 @@ function aiChartForType($type, $stats) {
     return ["line", $stats["reports_by_month"]];
 }
 
-function aiFallbackReport($prompt, $filters, $stats, $sourceCount) {
+function aiFallbackReport($prompt, $filters, $stats, $sourceCount, $topicMeta = [], $sourceData = []) {
     $type = $filters["type"] ?? "executive";
     $rangeTitles = [
         "week" => "השבוע",
@@ -255,6 +567,32 @@ function aiFallbackReport($prompt, $filters, $stats, $sourceCount) {
     $areaText = ($filters["area"] ?? "all") !== "all" ? " באזור " . $filters["area"] : "";
     $limitedData = $sourceCount < 5 ? " מאחר שמדובר במדגם קטן, יש להתייחס לתובנות בזהירות." : "";
     list($chartType, $chartData) = aiChartForType($type, $stats);
+    $activeTopic = $topicMeta["activeTopic"] ?? null;
+    $topicFilterApplied = !empty($topicMeta["topicFilterApplied"]);
+
+    if ($topicFilterApplied && $sourceCount === 0) {
+        return [
+            "success" => true,
+            "title" => "דוח בנושא " . $activeTopic,
+            "summary" => "לא נמצאו דיווחים התואמים לנושא " . $activeTopic . " בתקופה ובאזור שנבחרו.",
+            "insights" => [],
+            "recommendations" => [],
+            "stats" => [
+                "total" => 0,
+                "open" => 0,
+                "urgent" => 0,
+                "gaps" => 0,
+                "avgDays" => 0
+            ],
+            "chartType" => "bar",
+            "chartData" => [],
+            "sourceCount" => 0,
+            "sourceData" => [],
+            "activeTopic" => $activeTopic,
+            "topicFilterApplied" => true,
+            "fallback_used" => true
+        ];
+    }
 
     return [
         "success" => true,
@@ -282,22 +620,31 @@ function aiFallbackReport($prompt, $filters, $stats, $sourceCount) {
         "chartType" => $chartType,
         "chartData" => $chartData,
         "sourceCount" => $sourceCount,
+        "sourceData" => $sourceData,
+        "activeTopic" => $activeTopic,
+        "topicFilterApplied" => $topicFilterApplied,
         "fallback_used" => true
     ];
 }
 
-function aiBuildPrompt($userPrompt, $filters, $stats, $sourceCount) {
+function aiBuildPrompt($userPrompt, $filters, $stats, $sourceCount, $topicMeta = []) {
     $compactStats = [
         "sourceCount" => $sourceCount,
+        "activeTopic" => $topicMeta["activeTopic"] ?? null,
+        "topicFilterApplied" => !empty($topicMeta["topicFilterApplied"]),
         "filters" => $filters,
         "stats" => $stats
     ];
+    $topicInstruction = !empty($topicMeta["topicFilterApplied"])
+        ? "\nהנתונים כבר סוננו לפי בקשת המשתמש. אל תתייחס לדוחות שלא נכללו בנתונים."
+        : "";
 
     return "אתה יוצר דוח ניהולי לעמותת נקודות חיבור על בסיס סטטיסטיקות מסוכמות בלבד.
 אסור להמציא מספרים. השתמש רק במספרים שמופיעים בנתונים.
 אם sourceCount קטן או אין מספיק נתונים, ציין שהמדגם מוגבל.
 אין פרטים אישיים בנתונים ואין להוסיף כאלה.
 ענה JSON תקין בלבד, בלי Markdown ובלי טקסט חיצוני.
+" . $topicInstruction . "
 
 פורמט JSON חובה:
 {
@@ -348,11 +695,20 @@ if ($prompt === "") {
 }
 
 try {
-    $reports = aiFilterReports(mpAuthFilterReports($pdo, mpFetchNormalizedReports($pdo), $currentUser), $filters);
+    $authorizedReports = mpAuthFilterReports($pdo, mpFetchNormalizedReports($pdo), $currentUser);
+    $rangeAreaReports = aiFilterReports($authorizedReports, $filters);
+    $topicResult = aiApplyTopicFilter($rangeAreaReports, $prompt, $filters);
+    $reports = $topicResult["reports"];
     $stats = mpBuildReportStats($reports);
     $sourceCount = count($reports);
-    $fallback = aiFallbackReport($prompt, $filters, $stats, $sourceCount);
-    $gemini = aiCallGemini(aiBuildPrompt($prompt, $filters, $stats, $sourceCount));
+    $sourceData = aiBuildSourceData($reports);
+    $fallback = aiFallbackReport($prompt, $filters, $stats, $sourceCount, $topicResult, $sourceData);
+
+    if (!empty($topicResult["topicFilterApplied"]) && $sourceCount === 0) {
+        aiJsonResponse($fallback);
+    }
+
+    $gemini = aiCallGemini(aiBuildPrompt($prompt, $filters, $stats, $sourceCount, $topicResult));
 
     if (empty($gemini["ok"])) {
         error_log("AI REPORT GEMINI FALLBACK: " . ($gemini["error"] ?? "unknown"));
@@ -378,6 +734,9 @@ try {
         "chartType" => $fallbackChartType,
         "chartData" => $fallbackChartData,
         "sourceCount" => $sourceCount,
+        "sourceData" => $sourceData,
+        "activeTopic" => $topicResult["activeTopic"] ?? null,
+        "topicFilterApplied" => !empty($topicResult["topicFilterApplied"]),
         "fallback_used" => false
     ]);
 

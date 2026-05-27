@@ -299,27 +299,91 @@
             .manager-hero {
                 align-items: flex-start;
                 flex-direction: column;
+                gap: 14px;
+                margin-bottom: 16px;
+                padding: 18px 16px;
+                border-radius: 16px;
+            }
+
+            .manager-hero h1 {
+                font-size: 1.48rem;
+                line-height: 1.22;
+            }
+
+            .manager-hero p {
+                font-size: 0.95rem;
+                line-height: 1.45;
+            }
+
+            .manager-hero-icon {
+                width: 52px;
+                height: 52px;
+                border-radius: 15px;
+                font-size: 1.35rem;
             }
 
             .manager-kpi-grid {
                 grid-template-columns: 1fr;
+                gap: 12px;
+                margin-bottom: 16px;
+            }
+
+            .manager-kpi-card {
+                min-height: 96px;
+                padding: 16px;
+                border-radius: 16px;
+            }
+
+            .manager-kpi-value {
+                font-size: 1.65rem;
+            }
+
+            .manager-panel {
+                padding: 16px;
+                border-radius: 16px;
+            }
+
+            .manager-panel h2 {
+                font-size: 1.16rem;
+                line-height: 1.3;
+                margin-bottom: 14px;
             }
 
             .status-row {
-                grid-template-columns: 92px 1fr 36px;
+                grid-template-columns: minmax(78px, 102px) 1fr 34px;
+                gap: 8px;
+            }
+
+            .status-name,
+            .status-number {
+                font-size: 0.9rem;
             }
 
             .attention-card {
                 grid-template-columns: 1fr;
+                padding: 14px;
+                border-radius: 14px;
             }
 
             .urgency-pill {
                 width: fit-content;
+                min-height: 36px;
+                display: inline-flex;
+                align-items: center;
+            }
+
+            .manager-home-message {
+                margin-bottom: 14px;
+                border-radius: 14px;
+            }
+
+            .manager-dashboard-grid {
+                gap: 14px;
             }
         }
     </style>
 </head>
-<body>
+<body class="home-page">
 
     <div class="dashboard-wrapper">
         <aside class="sidebar" data-sidebar></aside>
