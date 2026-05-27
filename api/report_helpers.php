@@ -92,6 +92,16 @@ function mpFirstNonEmpty($row, $keys, $default = "") {
     return $default;
 }
 
+function mpFormatReportNumber($reportId) {
+    $reportId = (int)$reportId;
+
+    if ($reportId <= 0) {
+        return "";
+    }
+
+    return "RPT-" . str_pad((string)$reportId, 4, "0", STR_PAD_LEFT);
+}
+
 function mpContentLabelToField($label) {
     $label = trim((string)$label);
 
@@ -104,6 +114,10 @@ function mpContentLabelToField($label) {
     }
 
     if (preg_match('/דחיפות/u', $label)) {
+        if (preg_match('/סיבת|נימוק/u', $label)) {
+            return "urgency_reason";
+        }
+
         return "urgency";
     }
 
@@ -127,6 +141,7 @@ function mpParseReportContent($content) {
         "description" => "",
         "category" => "",
         "urgency" => "",
+        "urgency_reason" => "",
         "additional_details" => "",
         "image_analysis" => "",
         "area" => ""
@@ -161,9 +176,9 @@ function mpInferNeedType($text) {
         "ריח גז|גז|שריפה|עשן|נפילה|סכנה|חירום|חשמל חשוף|הצפה" => "בטיחות",
         "בודד|בודדה|בדידות|לבד|שיחה|ביקור" => "בדידות",
         "מזון|אוכל|ארוחה|קניות|מצרכים" => "מזון",
-        "תרופה|תרופות|מרשם|רופא|בדיקה|כאב|חולה|בריאות" => "בעיה רפואית",
+        "תרופה|תרופות|מרשם|רופא|בדיקה|כאב|חולה|בריאות|בלבול|מבולבל|מבולבלת|זוכר|זוכרת|זיכרון|זכרון|דמנציה" => "בעיה רפואית",
         "ליווי|הסעה|תור|מרפאה|קופת חולים" => "ליווי רפואי",
-        "תיקון|נזילה|דוד|מנעול|מקרר|תחזוקה|בית" => "בעיה תחזוקתית בבית",
+        "תיקון|נזילה|חלון|דוד|מנעול|מקרר|תחזוקה|בית|מים" => "בעיה תחזוקתית בבית",
         "ביטוח לאומי|רשויות|טופס|זכויות|חשבון|בירוקרטיה" => "סיוע מול רשויות"
     ];
 
@@ -185,7 +200,7 @@ function mpNormalizeUrgencyValue($value, $context = "") {
 
     $combined = trim((string)$value . " " . (string)$context);
 
-    if (preg_match('/קריט|סכנת חיים|ריח גז|גז|שריפה|אש|עשן|נפילה|נפל|נפלה|לא נושם|לא נושמת|התעלף|התעלפה|חירום|חשמל חשוף|הצפה|סכנה מיידית|סכנה מידית/u', $combined)) {
+    if (preg_match('/קריט|סכנת חיים|ריח גז|גז|שריפה|אש|עשן|נפילה|נפל|נפלה|קושי נשימה|קשיי נשימה|לא נושם|לא נושמת|התעלף|התעלפה|חירום|חשמל חשוף|הצפה|סכנה מיידית|סכנה מידית/u', $combined)) {
         return "קריטית";
     }
 
@@ -396,7 +411,7 @@ function mpFetchNormalizedReports($pdo) {
     }
 
     $select = ["r.*"];
-    $join = "";
+    $joins = [];
 
     if (mpColumnExists($reportColumns, "elderly_id") && mpDbTableExists($pdo, "elderly")) {
         $elderlyColumns = mpDbTableColumns($pdo, "elderly");
@@ -407,6 +422,10 @@ function mpFetchNormalizedReports($pdo) {
                 "city",
                 "neighborhood",
                 "address",
+                "first_name",
+                "last_name",
+                "full_name",
+                "name",
                 "assigned_org",
                 "organization_name",
                 "organization_id",
@@ -424,7 +443,62 @@ function mpFetchNormalizedReports($pdo) {
                 }
             }
 
-            $join = " LEFT JOIN elderly e ON e.id = r.elderly_id";
+            $joins[] = "LEFT JOIN elderly e ON e.id = r.elderly_id";
+        }
+    }
+
+    if (mpColumnExists($reportColumns, "volunteer_id") && mpDbTableExists($pdo, "volunteers")) {
+        $volunteerColumns = mpDbTableColumns($pdo, "volunteers");
+
+        if (mpColumnExists($volunteerColumns, "id")) {
+            foreach ([
+                "user_id",
+                "organization_id",
+                "org_id",
+                "ngo_id",
+                "association_id",
+                "assigned_org_id",
+                "assigned_organization_id",
+                "city",
+                "area",
+                "service_area",
+                "email",
+                "full_name",
+                "name"
+            ] as $column) {
+                if (mpColumnExists($volunteerColumns, $column)) {
+                    $select[] = "v." . mpQuoteIdentifier($column) . " AS " . mpQuoteIdentifier("volunteer_" . $column);
+                }
+            }
+
+            $joins[] = "LEFT JOIN volunteers v ON v.id = r.volunteer_id";
+
+            if (mpColumnExists($volunteerColumns, "user_id") && mpDbTableExists($pdo, "users")) {
+                $userColumns = mpDbTableColumns($pdo, "users");
+
+                if (mpColumnExists($userColumns, "id")) {
+                    foreach ([
+                        "organization_id",
+                        "org_id",
+                        "ngo_id",
+                        "association_id",
+                        "assigned_org_id",
+                        "assigned_organization_id",
+                        "first_name",
+                        "last_name",
+                        "full_name",
+                        "name",
+                        "email",
+                        "role"
+                    ] as $column) {
+                        if (mpColumnExists($userColumns, $column)) {
+                            $select[] = "u." . mpQuoteIdentifier($column) . " AS " . mpQuoteIdentifier("volunteer_user_" . $column);
+                        }
+                    }
+
+                    $joins[] = "LEFT JOIN users u ON u.id = v.user_id";
+                }
+            }
         }
     }
 
@@ -432,7 +506,7 @@ function mpFetchNormalizedReports($pdo) {
         ? " ORDER BY r.created_at DESC, r.id DESC"
         : " ORDER BY r.id DESC";
 
-    $stmt = $pdo->prepare("SELECT " . implode(", ", $select) . " FROM reports r" . $join . $order);
+    $stmt = $pdo->prepare("SELECT " . implode(", ", $select) . " FROM reports r " . implode(" ", $joins) . $order);
     $stmt->execute();
     $rows = $stmt->fetchAll();
 
@@ -464,7 +538,10 @@ function mpFetchNormalizedReports($pdo) {
             "neighborhood",
             "elderly_area",
             "elderly_city",
-            "elderly_neighborhood"
+            "elderly_neighborhood",
+            "volunteer_city",
+            "volunteer_area",
+            "volunteer_service_area"
         ], $parsed["area"]);
         $area = $area !== "" ? $area : "לא ידוע";
         $additionalDetails = mpFirstNonEmpty($row, ["additional_details"], $parsed["additional_details"]);
@@ -479,6 +556,18 @@ function mpFetchNormalizedReports($pdo) {
             "assigned_org_id",
             "assigned_organization_id",
             "routed_to_org_id",
+            "volunteer_user_organization_id",
+            "volunteer_user_org_id",
+            "volunteer_user_ngo_id",
+            "volunteer_user_association_id",
+            "volunteer_user_assigned_org_id",
+            "volunteer_user_assigned_organization_id",
+            "volunteer_organization_id",
+            "volunteer_org_id",
+            "volunteer_ngo_id",
+            "volunteer_association_id",
+            "volunteer_assigned_org_id",
+            "volunteer_assigned_organization_id",
             "elderly_organization_id",
             "elderly_org_id",
             "elderly_ngo_id",
@@ -504,6 +593,7 @@ function mpFetchNormalizedReports($pdo) {
 
         $normalized[] = [
             "id" => $id,
+            "report_number" => mpFormatReportNumber($id),
             "volunteer_id" => $row["volunteer_id"] ?? null,
             "elderly_id" => $row["elderly_id"] ?? null,
             "organization_id" => $organizationId !== "" ? (int)$organizationId : null,

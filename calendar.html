@@ -31,6 +31,47 @@
             font-size: 1.35rem;
         }
 
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .calendar-header h2,
+        .agenda-title {
+            margin: 0;
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .calendar-nav-btn {
+            width: 38px;
+            height: 38px;
+            border: 1px solid #fed7aa;
+            border-radius: 12px;
+            background: #fff7ed;
+            color: var(--primary-orange);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+
+        .calendar-nav-btn:hover,
+        .calendar-nav-btn:focus-visible {
+            background: #ffedd5;
+            border-color: #fdba74;
+            box-shadow: 0 0 0 3px rgba(241, 163, 64, 0.16);
+            outline: none;
+        }
+
         .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, minmax(42px, 1fr));
@@ -58,17 +99,37 @@
             color: #334155;
             border: 1px solid #eef2f7;
             position: relative;
+            width: 100%;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1rem;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .day:hover,
+        .day:focus-visible {
+            border-color: #fdba74;
+            box-shadow: 0 0 0 3px rgba(241, 163, 64, 0.16);
+            outline: none;
         }
 
         .day.muted {
             color: #cbd5e1;
             background: #f8fafc;
+            cursor: default;
         }
 
         .day.today {
             background: #fff7ed;
             color: var(--primary-orange);
             border-color: #fed7aa;
+        }
+
+        .day.selected {
+            background: var(--primary-orange);
+            color: white;
+            border-color: var(--primary-orange);
+            box-shadow: 0 10px 20px rgba(241, 163, 64, 0.22);
         }
 
         .day.has-event::after {
@@ -79,6 +140,10 @@
             height: 6px;
             border-radius: 50%;
             background: var(--primary-orange);
+        }
+
+        .day.selected.has-event::after {
+            background: white;
         }
 
         .agenda-list {
@@ -113,6 +178,68 @@
             font-size: 0.92rem;
         }
 
+        .agenda-empty,
+        .calendar-message {
+            color: var(--text-muted);
+            font-weight: 800;
+            padding: 16px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            background: #f8fafc;
+        }
+
+        .calendar-message.error {
+            color: #dc2626;
+            border-color: #fecaca;
+            background: #fef2f2;
+        }
+
+        .calendar-message[hidden] {
+            display: none;
+        }
+
+        .calendar-toast {
+            position: fixed;
+            left: 22px;
+            bottom: 22px;
+            z-index: 50;
+            background: #1f2937;
+            color: white;
+            border-radius: 14px;
+            padding: 12px 16px;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+            font-weight: 800;
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+            max-width: min(420px, calc(100vw - 32px));
+        }
+
+        .calendar-toast.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .agenda-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            font-weight: 700;
+        }
+
+        .agenda-pill {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 4px 8px;
+            background: white;
+            color: #475569;
+        }
+
         @media (max-width: 900px) {
             .calendar-layout {
                 grid-template-columns: 1fr;
@@ -137,91 +264,410 @@
 
             <section class="calendar-layout">
                 <div class="panel">
-                    <h2>מאי 2026</h2>
-                    <div class="calendar-grid" aria-label="יומן חודשי">
-                        <div class="weekday">א</div>
-                        <div class="weekday">ב</div>
-                        <div class="weekday">ג</div>
-                        <div class="weekday">ד</div>
-                        <div class="weekday">ה</div>
-                        <div class="weekday">ו</div>
-                        <div class="weekday">ש</div>
-                        <div class="day muted">26</div>
-                        <div class="day muted">27</div>
-                        <div class="day muted">28</div>
-                        <div class="day muted">29</div>
-                        <div class="day muted">30</div>
-                        <div class="day">1</div>
-                        <div class="day">2</div>
-                        <div class="day">3</div>
-                        <div class="day has-event">4</div>
-                        <div class="day">5</div>
-                        <div class="day">6</div>
-                        <div class="day has-event">7</div>
-                        <div class="day">8</div>
-                        <div class="day">9</div>
-                        <div class="day">10</div>
-                        <div class="day">11</div>
-                        <div class="day has-event">12</div>
-                        <div class="day">13</div>
-                        <div class="day">14</div>
-                        <div class="day">15</div>
-                        <div class="day">16</div>
-                        <div class="day today has-event">17</div>
-                        <div class="day">18</div>
-                        <div class="day">19</div>
-                        <div class="day">20</div>
-                        <div class="day has-event">21</div>
-                        <div class="day">22</div>
-                        <div class="day">23</div>
-                        <div class="day">24</div>
-                        <div class="day">25</div>
-                        <div class="day">26</div>
-                        <div class="day">27</div>
-                        <div class="day has-event">28</div>
-                        <div class="day">29</div>
-                        <div class="day">30</div>
-                        <div class="day">31</div>
-                        <div class="day muted">1</div>
-                        <div class="day muted">2</div>
-                        <div class="day muted">3</div>
-                        <div class="day muted">4</div>
-                        <div class="day muted">5</div>
-                        <div class="day muted">6</div>
+                    <div class="calendar-header">
+                        <h2 id="calendarMonthTitle">טוען יומן...</h2>
+                        <div class="calendar-nav" aria-label="ניווט בין חודשים">
+                            <button type="button" class="calendar-nav-btn" data-month-nav="-1" aria-label="חודש קודם" title="חודש קודם">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                            <button type="button" class="calendar-nav-btn" data-month-nav="1" aria-label="חודש הבא" title="חודש הבא">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </button>
+                        </div>
                     </div>
+                    <div id="calendarMessage" class="calendar-message">טוען משימות מהמערכת...</div>
+                    <div id="calendarGrid" class="calendar-grid" aria-label="יומן חודשי"></div>
                 </div>
 
                 <aside class="panel">
-                    <h2 class="section-title-with-help">היום <button type="button" class="help-icon" data-tooltip="המשימות והפגישות הקרובות שמומלץ לטפל בהן היום." aria-label="מידע נוסף">?</button></h2>
-                    <div class="agenda-list">
-                        <div class="agenda-item">
-                            <div class="agenda-time">09:30</div>
-                            <div>
-                                <strong>שיחת מעקב עם שרה לוי</strong>
-                                <span>בדיקת סטטוס טיפול בבקשת תרופות.</span>
-                            </div>
-                        </div>
-                        <div class="agenda-item">
-                            <div class="agenda-time">12:00</div>
-                            <div>
-                                <strong>שיוך מתנדב חדש</strong>
-                                <span>תיאום ביקור בית באזור חולון.</span>
-                            </div>
-                        </div>
-                        <div class="agenda-item">
-                            <div class="agenda-time">16:15</div>
-                            <div>
-                                <strong>סיכום דיווחים פתוחים</strong>
-                                <span>מעבר על פניות דחופות לפני סוף היום.</span>
-                            </div>
-                        </div>
+                    <h2 class="section-title-with-help agenda-title"><span id="agendaTitle">היום</span> <button type="button" class="help-icon" data-tooltip="המשימות והפגישות הקרובות שמומלץ לטפל בהן ביום שנבחר." aria-label="מידע נוסף">?</button></h2>
+                    <div class="agenda-list" id="agendaList">
+                        <div class="agenda-empty">טוען משימות...</div>
                     </div>
                 </aside>
             </section>
         </main>
     </div>
+    <div id="calendarToast" class="calendar-toast" role="status" aria-live="polite"></div>
 
     <script src="sidebar.js"></script>
     <script src="help-tooltips.js"></script>
+    <script>
+        const monthFormatter = new Intl.DateTimeFormat('he-IL', { month: 'long', year: 'numeric' });
+        const dayFormatter = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        const today = new Date();
+        const baseYear = today.getFullYear();
+        const baseMonth = today.getMonth();
+        const MONTH_RANGE_LIMIT = 2;
+        const taskTemplates = [
+            {
+                time: '09:30',
+                title: name => `ביקור בית אצל ${name}`,
+                description: 'בדיקת מצב כללי ותיאום המשך קשר.'
+            },
+            {
+                time: '10:15',
+                title: name => `שיחת מעקב עם ${name}`,
+                description: 'שיחה קצרה לווידוא תחושה כללית וצרכים קרובים.'
+            },
+            {
+                time: '11:00',
+                title: name => `תזכורת למילוי דוח חודשי עבור ${name}`,
+                description: 'סיכום תקופתי קצר על מצב הקשר והביקורים.'
+            },
+            {
+                time: '12:30',
+                title: name => `בדיקת מצב כללי של ${name} לאחר הביקור`,
+                description: 'מעבר על נקודות פתוחות ותיאום פעולה הבאה.'
+            },
+            {
+                time: '15:00',
+                title: name => `לוודא צורך בסיוע בקניות אצל ${name}`,
+                description: 'בדיקה יזומה של צורך במצרכים או סיוע לוגיסטי.'
+            },
+            {
+                time: '16:00',
+                title: name => `שיחה קצרה עם איש קשר משפחתי של ${name}`,
+                description: 'שמירה על רצף מידע מול איש קשר משפחתי.'
+            },
+            {
+                time: '17:15',
+                title: name => `מעקב אחר מצב רגשי ובדידות אצל ${name}`,
+                description: 'שיחה נעימה לזיהוי צורך בחברה או ביקור נוסף.'
+            },
+            {
+                time: '18:00',
+                title: name => `תזכורת למלא דוח תקופתי עבור ${name}`,
+                description: 'תיעוד פנימי קצר של פעילות ההתנדבות.'
+            }
+        ];
+        const calendarState = {
+            year: baseYear,
+            month: baseMonth,
+            monthOffset: 0,
+            selectedDate: dateKey(today),
+            events: [],
+            volunteerId: null,
+            elderly: null,
+            hasAssignedElderly: false,
+            loading: true,
+            error: false
+        };
+
+        function pad(value) {
+            return String(value).padStart(2, '0');
+        }
+
+        function dateKey(date) {
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+        }
+
+        function keyToDate(key) {
+            const [year, month, day] = String(key).split('-').map(Number);
+            return new Date(year, month - 1, day);
+        }
+
+        function monthFromOffset(offset) {
+            return new Date(baseYear, baseMonth + offset, 1);
+        }
+
+        function selectedDateForMonth(offset, year, month) {
+            if (offset === 0) {
+                return dateKey(today);
+            }
+
+            return dateKey(new Date(year, month, 1));
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function elderlyName() {
+            const elderly = calendarState.elderly || {};
+            const fullName = [elderly.firstName, elderly.lastName]
+                .map(part => String(part || '').trim())
+                .filter(Boolean)
+                .join(' ');
+
+            return fullName || 'הקשיש';
+        }
+
+        function stringHash(value) {
+            let hash = 0;
+            const text = String(value);
+
+            for (let index = 0; index < text.length; index++) {
+                hash = ((hash << 5) - hash) + text.charCodeAt(index);
+                hash |= 0;
+            }
+
+            return Math.abs(hash);
+        }
+
+        function seededNumber(seed, key, modulo) {
+            return stringHash(`${seed}:${key}`) % modulo;
+        }
+
+        function eventsByDate() {
+            return calendarState.events.reduce((grouped, event) => {
+                grouped[event.date] = grouped[event.date] || [];
+                grouped[event.date].push(event);
+                return grouped;
+            }, {});
+        }
+
+        function generateMonthEvents() {
+            if (!calendarState.hasAssignedElderly || !calendarState.elderly?.id) {
+                calendarState.events = [];
+                return;
+            }
+
+            const seed = [
+                calendarState.volunteerId || 'volunteer',
+                calendarState.elderly.id,
+                calendarState.year,
+                calendarState.month + 1
+            ].join(':');
+            const name = elderlyName();
+            const firstWeekday = new Date(calendarState.year, calendarState.month, 1).getDay();
+            const daysInMonth = new Date(calendarState.year, calendarState.month + 1, 0).getDate();
+            const weeks = new Map();
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const weekIndex = Math.floor((firstWeekday + day - 1) / 7);
+                if (!weeks.has(weekIndex)) {
+                    weeks.set(weekIndex, []);
+                }
+                weeks.get(weekIndex).push(day);
+            }
+
+            const events = [];
+
+            weeks.forEach((days, weekIndex) => {
+                const weekdayCandidates = days.filter(day => {
+                    const weekday = new Date(calendarState.year, calendarState.month, day).getDay();
+                    return weekday >= 0 && weekday <= 4;
+                });
+                const candidates = weekdayCandidates.length ? weekdayCandidates : days;
+                const dayCount = Math.min(candidates.length, seededNumber(seed, `week-${weekIndex}-count`, 4) === 0 ? 2 : 1);
+                const selectedDays = [];
+
+                for (let index = 0; index < dayCount; index++) {
+                    let candidateIndex = seededNumber(seed, `week-${weekIndex}-day-${index}`, candidates.length);
+
+                    while (selectedDays.includes(candidates[candidateIndex])) {
+                        candidateIndex = (candidateIndex + 1) % candidates.length;
+                    }
+
+                    selectedDays.push(candidates[candidateIndex]);
+                }
+
+                selectedDays.sort((a, b) => a - b).forEach((day, dayIndex) => {
+                    const eventCount = seededNumber(seed, `day-${day}-event-count`, 5) === 0 ? 2 : 1;
+
+                    for (let eventIndex = 0; eventIndex < eventCount; eventIndex++) {
+                        const templateIndex = seededNumber(seed, `day-${day}-event-${eventIndex}`, taskTemplates.length);
+                        const template = taskTemplates[(templateIndex + eventIndex) % taskTemplates.length];
+
+                        events.push({
+                            date: dateKey(new Date(calendarState.year, calendarState.month, day)),
+                            time: template.time,
+                            title: template.title(name),
+                            description: template.description,
+                            sortKey: `${pad(day)}-${dayIndex}-${eventIndex}`
+                        });
+                    }
+                });
+            });
+
+            calendarState.events = events.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+        }
+
+        function renderCalendar() {
+            const title = document.getElementById('calendarMonthTitle');
+            const grid = document.getElementById('calendarGrid');
+            const message = document.getElementById('calendarMessage');
+            if (!title || !grid) return;
+
+            title.textContent = monthFormatter.format(new Date(calendarState.year, calendarState.month, 1));
+            if (message) {
+                message.hidden = !(calendarState.loading || calendarState.error);
+                if (calendarState.loading) {
+                    message.textContent = 'טוען משימות מהמערכת...';
+                    message.className = 'calendar-message';
+                }
+            }
+
+            const weekdays = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+            const firstDay = new Date(calendarState.year, calendarState.month, 1);
+            const firstWeekday = firstDay.getDay();
+            const daysInMonth = new Date(calendarState.year, calendarState.month + 1, 0).getDate();
+            const previousMonthDays = new Date(calendarState.year, calendarState.month, 0).getDate();
+            const groupedEvents = eventsByDate();
+            const cells = weekdays.map(day => `<div class="weekday">${day}</div>`);
+
+            for (let i = firstWeekday - 1; i >= 0; i--) {
+                cells.push(`<div class="day muted" aria-hidden="true">${previousMonthDays - i}</div>`);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const currentDate = new Date(calendarState.year, calendarState.month, day);
+                const key = dateKey(currentDate);
+                const classes = ['day'];
+                if (key === dateKey(today)) classes.push('today');
+                if (key === calendarState.selectedDate) classes.push('selected');
+                if ((groupedEvents[key] || []).length) classes.push('has-event');
+
+                cells.push(`
+                    <button type="button" class="${classes.join(' ')}" data-date="${key}" aria-label="${escapeHtml(dayFormatter.format(currentDate))}">
+                        ${day}
+                    </button>
+                `);
+            }
+
+            const totalCells = cells.length - weekdays.length;
+            const trailingCells = (7 - (totalCells % 7)) % 7;
+            for (let day = 1; day <= trailingCells; day++) {
+                cells.push(`<div class="day muted" aria-hidden="true">${day}</div>`);
+            }
+
+            grid.innerHTML = cells.join('');
+
+            grid.querySelectorAll('[data-date]').forEach(button => {
+                button.addEventListener('click', () => {
+                    calendarState.selectedDate = button.dataset.date;
+                    renderCalendar();
+                    renderAgenda();
+                });
+            });
+        }
+
+        function renderAgenda() {
+            const title = document.getElementById('agendaTitle');
+            const list = document.getElementById('agendaList');
+            if (!title || !list) return;
+
+            const selected = keyToDate(calendarState.selectedDate);
+            const isToday = calendarState.selectedDate === dateKey(today);
+            const events = calendarState.events
+                .filter(event => event.date === calendarState.selectedDate)
+                .sort((a, b) => String(a.time || '').localeCompare(String(b.time || '')));
+
+            title.textContent = isToday ? 'היום' : `משימות ליום ${dayFormatter.format(selected)}`;
+
+            if (calendarState.loading) {
+                list.innerHTML = '<div class="agenda-empty">טוען משימות...</div>';
+                return;
+            }
+
+            if (!calendarState.hasAssignedElderly) {
+                list.innerHTML = '<div class="agenda-empty">עדיין לא שויך אליך קשיש, ולכן אין משימות להצגה ביומן.</div>';
+                return;
+            }
+
+            if (!events.length) {
+                list.innerHTML = '<div class="agenda-empty">אין משימות ליום זה.</div>';
+                return;
+            }
+
+            list.innerHTML = events.map(event => `
+                <article class="agenda-item">
+                    <div class="agenda-time">${escapeHtml(event.time)}</div>
+                    <div>
+                        <strong>${escapeHtml(event.title)}</strong>
+                        <span>${escapeHtml(event.description)}</span>
+                        <div class="agenda-meta">
+                            <span class="agenda-pill">משימה מתוכננת</span>
+                        </div>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        function setCalendarError(message) {
+            const messageBox = document.getElementById('calendarMessage');
+            if (messageBox) {
+                messageBox.hidden = false;
+                messageBox.textContent = message;
+                messageBox.className = 'calendar-message error';
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('calendarToast');
+            if (!toast) return;
+
+            toast.textContent = message;
+            toast.classList.add('active');
+            clearTimeout(showToast.timeoutId);
+            showToast.timeoutId = setTimeout(() => {
+                toast.classList.remove('active');
+            }, 2600);
+        }
+
+        function changeMonth(delta) {
+            const nextOffset = calendarState.monthOffset + delta;
+
+            if (nextOffset < -MONTH_RANGE_LIMIT || nextOffset > MONTH_RANGE_LIMIT) {
+                showToast('ניתן לצפות ביומן עד חודשיים קדימה או אחורה בלבד.');
+                return;
+            }
+
+            const nextMonth = monthFromOffset(nextOffset);
+            calendarState.monthOffset = nextOffset;
+            calendarState.year = nextMonth.getFullYear();
+            calendarState.month = nextMonth.getMonth();
+            calendarState.selectedDate = selectedDateForMonth(nextOffset, calendarState.year, calendarState.month);
+            generateMonthEvents();
+            renderCalendar();
+            renderAgenda();
+        }
+
+        async function loadCalendarTasks() {
+            renderCalendar();
+            renderAgenda();
+
+            try {
+                const user = await window.HiburimSidebar?.getCurrentUser?.();
+                const response = await fetch('./api/my_elderly.php?include_reports=0', { cache: 'no-store' });
+                const data = await response.json();
+
+                if (!response.ok || data.success === false) {
+                    throw new Error(data.message || 'לא הצלחנו לטעון את המשימות ליומן.');
+                }
+
+                calendarState.volunteerId = user?.volunteer_id || null;
+                calendarState.hasAssignedElderly = Boolean(data.hasAssignedElderly && data.elderly?.id);
+                calendarState.elderly = calendarState.hasAssignedElderly ? data.elderly : null;
+                calendarState.loading = false;
+                calendarState.error = false;
+                generateMonthEvents();
+                renderCalendar();
+                renderAgenda();
+            } catch (error) {
+                console.error('CALENDAR LOAD ERROR:', error);
+                calendarState.events = [];
+                calendarState.loading = false;
+                calendarState.error = true;
+                renderCalendar();
+                renderAgenda();
+                setCalendarError(error.message || 'שגיאה בטעינת היומן.');
+            }
+        }
+
+        document.querySelectorAll('[data-month-nav]').forEach(button => {
+            button.addEventListener('click', () => {
+                changeMonth(Number(button.dataset.monthNav || 0));
+            });
+        });
+
+        loadCalendarTasks();
+    </script>
 </body>
 </html>

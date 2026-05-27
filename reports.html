@@ -267,7 +267,7 @@
 
                 <div class="filter-item">
                     <label>מספר דיווח</label>
-                    <input type="text" id="reportIdFilter" placeholder="לדוגמה: 39" oninput="renderReports()">
+                    <input type="text" id="reportIdFilter" placeholder="לדוגמה: RPT-0041" oninput="renderReports()">
                 </div>
 
                 <div class="filter-item">
@@ -385,12 +385,13 @@
 
                 const content = String(report.content || '').toLowerCase();
                 const reportId = String(report.id || '').toLowerCase();
+                const reportNumber = String(report.report_number || '').toLowerCase();
                 const volunteerId = String(report.volunteer_id || '').toLowerCase();
                 const elderlyId = String(report.elderly_id || '').toLowerCase();
                 const urgency = String(report.urgency || '');
 
                 const matchesFreeText = !searchValue || content.includes(searchValue);
-                const matchesReportId = !reportIdValue || reportId.includes(reportIdValue);
+                const matchesReportId = !reportIdValue || reportId.includes(reportIdValue) || reportNumber.includes(reportIdValue);
                 const matchesVolunteer = !volunteerValue || volunteerId.includes(volunteerValue);
                 const matchesElderly = !elderlyValue || elderlyId.includes(elderlyValue);
                 const matchesStatus = statusValue === 'הכל' || status === statusValue;
@@ -413,7 +414,9 @@
             renderSummary(filteredReports);
 
             if (!filteredReports.length) {
-                reportList.innerHTML = '<div class="empty-message">לא נמצאו דיווחים מתאימים.</div>';
+                reportList.innerHTML = reportsData.length
+                    ? '<div class="empty-message">לא נמצאו דיווחים עבור הפילטר הנוכחי. קיימים דיווחים במערכת, נסה לנקות סינון.</div>'
+                    : '<div class="empty-message">אין דיווחים להצגה עבור העמותה המחוברת.</div>';
                 return;
             }
 
@@ -434,7 +437,7 @@
                 return `
                     <div class="report-card status-card-${statusClass}">
                         <div class="report-card-header">
-                            <span class="report-title">דיווח #${escapeHtml(report.id)}</span>
+                            <span class="report-title">דיווח ${escapeHtml(report.report_number || ('#' + report.id))}</span>
 
                             <div class="status-tools">
                                 ${statusControl}
@@ -571,11 +574,15 @@
         }
 
         function normalizeStatus(status) {
-            if (status === 'חדש' || status === 'פתוח') {
+            if (['new', 'open', 'submitted', 'הוגש', 'חדש', 'פתוח'].includes(status)) {
                 return 'הוגש';
             }
 
-            if (status === 'סגור' || status === 'נסגר') {
+            if (['in_progress', 'processing', 'בטיפול'].includes(status)) {
+                return 'בטיפול';
+            }
+
+            if (['done', 'closed', 'resolved', 'טופל', 'סגור', 'נסגר'].includes(status)) {
                 return 'טופל';
             }
 

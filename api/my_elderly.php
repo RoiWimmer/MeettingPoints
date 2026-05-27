@@ -140,6 +140,7 @@ function mpMyElderlyFetchRecentReports($pdo, $volunteerId, $elderlyId) {
 
 try {
     $currentUser = requireLogin($pdo);
+    $includeReports = !isset($_GET["include_reports"]) || (string)$_GET["include_reports"] !== "0";
 
     if (!empty($currentUser["is_demo"])) {
         mpMyElderlyResponse([
@@ -190,7 +191,7 @@ try {
             "assignmentType" => (string)($row["assignment_type"] ?? ""),
             "status" => (string)($row["assignment_status"] ?? "active")
         ],
-        "recentReports" => mpMyElderlyFetchRecentReports($pdo, $volunteerId, $elderlyId)
+        "recentReports" => $includeReports ? mpMyElderlyFetchRecentReports($pdo, $volunteerId, $elderlyId) : []
     ]);
 } catch (Throwable $e) {
     error_log("MY ELDERLY API ERROR: " . $e->getMessage());

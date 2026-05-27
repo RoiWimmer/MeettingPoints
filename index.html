@@ -9,6 +9,315 @@
     <link rel="stylesheet" href="help-tooltips.css">
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700&family=Heebo:wght@500;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .manager-home {
+            display: none;
+        }
+
+        body.is-manager-home .volunteer-home {
+            display: none;
+        }
+
+        body.is-manager-home .manager-home {
+            display: block;
+        }
+
+        .manager-hero {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 24px 26px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .manager-hero h1 {
+            margin: 0 0 8px;
+            color: var(--dark-blue);
+            font-size: 2rem;
+            font-weight: 800;
+        }
+
+        .manager-hero p {
+            margin: 0;
+            color: var(--text-muted);
+            line-height: 1.6;
+            font-weight: 700;
+            max-width: 780px;
+        }
+
+        .manager-hero-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #f1a340, #ff7e5f);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            box-shadow: 0 14px 28px rgba(241, 163, 64, 0.24);
+            flex: 0 0 auto;
+        }
+
+        .manager-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .manager-kpi-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 18px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            min-height: 132px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 14px;
+        }
+
+        .manager-kpi-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .manager-kpi-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 13px;
+            background: #fff7ed;
+            color: var(--primary-orange);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+        }
+
+        .manager-kpi-value {
+            color: var(--dark-blue);
+            font-size: 1.8rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .manager-kpi-label {
+            color: var(--text-muted);
+            font-weight: 800;
+            line-height: 1.35;
+        }
+
+        .manager-dashboard-grid {
+            display: grid;
+            grid-template-columns: 0.92fr 1.08fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .manager-panel {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 22px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .manager-panel h2 {
+            margin: 0 0 16px;
+            color: var(--dark-blue);
+            font-size: 1.35rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .manager-home-message {
+            display: none;
+            margin-bottom: 18px;
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-weight: 800;
+            border: 1px solid #fed7aa;
+            background: #fff7ed;
+            color: #b45309;
+        }
+
+        .manager-home-message.active {
+            display: block;
+        }
+
+        .manager-home-message.error {
+            border-color: #fecaca;
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .status-breakdown {
+            display: grid;
+            gap: 14px;
+        }
+
+        .status-row {
+            display: grid;
+            grid-template-columns: 120px 1fr 44px;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .status-name {
+            color: #334155;
+            font-weight: 800;
+        }
+
+        .status-number {
+            color: var(--dark-blue);
+            font-weight: 800;
+            text-align: left;
+        }
+
+        .status-track {
+            height: 9px;
+            background: #f1f5f9;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .status-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: var(--primary-orange);
+        }
+
+        .status-fill.new { background: #f59e0b; }
+        .status-fill.progress { background: #3b82f6; }
+        .status-fill.waiting { background: #8b5cf6; }
+        .status-fill.done { background: #10b981; }
+
+        .attention-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .attention-empty {
+            color: var(--text-muted);
+            font-weight: 800;
+            padding: 16px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            background: #f8fafc;
+        }
+
+        .attention-card {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 14px;
+            align-items: center;
+            border: 1px solid #e2e8f0;
+            border-right: 6px solid #94a3b8;
+            border-radius: 16px;
+            padding: 15px 16px;
+            background: #ffffff;
+        }
+
+        .attention-card.urgent {
+            border-right-color: #dc2626;
+            background: #fffafa;
+        }
+
+        .attention-card.medium {
+            border-right-color: #f59e0b;
+            background: #fffdf7;
+        }
+
+        .attention-card.normal {
+            border-right-color: #10b981;
+        }
+
+        .attention-title {
+            color: var(--dark-blue);
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .attention-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 0.92rem;
+        }
+
+        .urgency-pill {
+            border-radius: 999px;
+            padding: 7px 11px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .urgency-pill.urgent {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .urgency-pill.medium {
+            background: #fff7ed;
+            color: #d97706;
+        }
+
+        .urgency-pill.normal {
+            background: #ecfdf5;
+            color: #059669;
+        }
+
+        .urgency-pill.critical {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        @media (max-width: 1180px) {
+            .manager-kpi-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .manager-dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .manager-hero {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .manager-kpi-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .status-row {
+                grid-template-columns: 92px 1fr 36px;
+            }
+
+            .attention-card {
+                grid-template-columns: 1fr;
+            }
+
+            .urgency-pill {
+                width: fit-content;
+            }
+        }
+    </style>
 </head>
 <body>
 
@@ -16,68 +325,162 @@
         <aside class="sidebar" data-sidebar></aside>
 
         <main class="main-content">
-            <header class="top-bar">
-                <div class="welcome-text">
-                    <h1 class="title-with-help">
-                        שלום, מתנדב!
-                        <button type="button" class="help-icon" data-tooltip="זהו מסך הבית שמרכז נתוני פעילות ופעולות מהירות." aria-label="מידע נוסף">?</button>
-                    </h1>
-                    <p>שמחים שחזרת לעזור היום. מכאן אפשר לדווח על צורך חדש או לעקוב אחרי דיווחים קיימים.</p>
-                </div>
-                <div class="user-profile">
-                    <img src="https://ui-avatars.com/api/?name=Volunteer&background=f1a340&color=fff" alt="User">
-                </div>
-            </header>
+            <div class="volunteer-home" data-home-view="volunteer">
+                <header class="top-bar">
+                    <div class="welcome-text">
+                        <h1 class="title-with-help">
+                            שלום, מתנדב!
+                            <button type="button" class="help-icon" data-tooltip="זהו מסך הבית שמרכז נתוני פעילות ופעולות מהירות." aria-label="מידע נוסף">?</button>
+                        </h1>
+                        <p>שמחים שחזרת לעזור היום. מכאן אפשר לדווח על צורך חדש או לעקוב אחרי דיווחים קיימים.</p>
+                    </div>
+                    <div class="user-profile">
+                        <img src="https://ui-avatars.com/api/?name=Volunteer&background=f1a340&color=fff" alt="User">
+                    </div>
+                </header>
 
-            <section class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon orange-bg"><i class="fa-solid fa-house-chimney"></i></div>
-                    <div class="stat-info">
-                        <h3>1</h3>
-                        <p class="label-with-help">קשישים בקשר <button type="button" class="help-icon" data-tooltip="מספר הקשישים שנמצאים במעקב פעיל כרגע." aria-label="מידע נוסף">?</button></p>
+                <section class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon orange-bg"><i class="fa-solid fa-house-chimney"></i></div>
+                        <div class="stat-info">
+                            <h3 data-volunteer-value="elderlyInContact">...</h3>
+                            <p class="label-with-help">קשישים בקשר <button type="button" class="help-icon" data-tooltip="מספר הקשישים שנמצאים במעקב פעיל כרגע." aria-label="מידע נוסף">?</button></p>
+                        </div>
                     </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon blue-bg"><i class="fa-solid fa-clipboard-list"></i></div>
-                    <div class="stat-info">
-                        <h3>12</h3>
-                        <p class="label-with-help">סה"כ דיווחים <button type="button" class="help-icon" data-tooltip="כל הפניות שנשלחו למערכת ונשמרו למעקב." aria-label="מידע נוסף">?</button></p>
+                    <div class="stat-card">
+                        <div class="stat-icon blue-bg"><i class="fa-solid fa-clipboard-list"></i></div>
+                        <div class="stat-info">
+                            <h3 data-volunteer-value="totalReports">...</h3>
+                            <p class="label-with-help">סה"כ דיווחים <button type="button" class="help-icon" data-tooltip="כל הפניות שנשלחו למערכת ונשמרו למעקב." aria-label="מידע נוסף">?</button></p>
+                        </div>
                     </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon green-bg"><i class="fa-solid fa-check-double"></i></div>
-                    <div class="stat-info">
-                        <h3>8</h3>
-                        <p>בקשות שנסגרו</p>
+                    <div class="stat-card">
+                        <div class="stat-icon green-bg"><i class="fa-solid fa-check-double"></i></div>
+                        <div class="stat-info">
+                            <h3 data-volunteer-value="closedReports">...</h3>
+                            <p>בקשות שנסגרו</p>
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <section class="quick-actions">
-                <div class="action-header">
-                    <h2 class="section-title-with-help"><i class="fa-solid fa-bolt"></i> פעולות מהירות <button type="button" class="help-icon" data-tooltip="קיצורים לפעולות המרכזיות שהמתנדב מבצע במערכת." aria-label="מידע נוסף">?</button></h2>
-                </div>
-                <div class="action-buttons">
-                    <a href="chatbot.html" class="big-action-btn primary">
-                        <div class="btn-content">
-                            <i class="fa-solid fa-plus-circle"></i>
-                            <div>
-                                <strong>דיווח על צורך חדש</strong>
-                                <span>עדכן מה קורה בשטח</span>
+                <section class="quick-actions">
+                    <div class="action-header">
+                        <h2 class="section-title-with-help"><i class="fa-solid fa-bolt"></i> פעולות מהירות <button type="button" class="help-icon" data-tooltip="קיצורים לפעולות המרכזיות שהמתנדב מבצע במערכת." aria-label="מידע נוסף">?</button></h2>
+                    </div>
+                    <div class="action-buttons">
+                        <a href="chatbot.html" class="big-action-btn primary">
+                            <div class="btn-content">
+                                <i class="fa-solid fa-plus-circle"></i>
+                                <div>
+                                    <strong>דיווח על צורך חדש</strong>
+                                    <span>עדכן מה קורה בשטח</span>
+                                </div>
+                            </div>
+                        </a>
+                        <a href="reports.html" class="big-action-btn secondary">
+                            <div class="btn-content">
+                                <i class="fa-solid fa-history"></i>
+                                <div>
+                                    <strong>דיווחים קודמים</strong>
+                                    <span>עקוב אחר הטיפול</span>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </section>
+            </div>
+
+            <div class="manager-home" data-home-view="manager">
+                <section class="manager-hero">
+                    <div>
+                        <h1>בוקר טוב, מנהל/ת עמותת חיבורים</h1>
+                        <p>זהו מרכז השליטה של הארגון: מה דורש טיפול עכשיו, מה מצב הפניות, מי מטפל בכל מקרה, ואילו תובנות עולות מהשטח.</p>
+                    </div>
+                    <div class="manager-hero-icon" aria-hidden="true">
+                        <i class="fa-solid fa-gauge-high"></i>
+                    </div>
+                </section>
+
+                <div id="managerHomeMessage" class="manager-home-message active">טוען נתונים ממסד הנתונים...</div>
+
+                <section class="manager-kpi-grid" aria-label="מדדי ניהול מרכזיים">
+                    <article class="manager-kpi-card">
+                        <div class="manager-kpi-top">
+                            <div class="manager-kpi-icon"><i class="fa-solid fa-folder-open"></i></div>
+                            <div class="manager-kpi-value" data-manager-value="openReports">...</div>
+                        </div>
+                        <div class="manager-kpi-label">פניות פתוחות</div>
+                    </article>
+                    <article class="manager-kpi-card">
+                        <div class="manager-kpi-top">
+                            <div class="manager-kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="manager-kpi-value" data-manager-value="urgentReports">...</div>
+                        </div>
+                        <div class="manager-kpi-label">פניות דחופות</div>
+                    </article>
+                    <article class="manager-kpi-card">
+                        <div class="manager-kpi-top">
+                            <div class="manager-kpi-icon"><i class="fa-solid fa-person-cane"></i></div>
+                            <div class="manager-kpi-value" data-manager-value="elderlyInFollowup">...</div>
+                        </div>
+                        <div class="manager-kpi-label">קשישים במעקב</div>
+                    </article>
+                    <article class="manager-kpi-card">
+                        <div class="manager-kpi-top">
+                            <div class="manager-kpi-icon"><i class="fa-solid fa-people-group"></i></div>
+                            <div class="manager-kpi-value" data-manager-value="activeVolunteers">...</div>
+                        </div>
+                        <div class="manager-kpi-label">מתנדבים פעילים</div>
+                    </article>
+                    <article class="manager-kpi-card">
+                        <div class="manager-kpi-top">
+                            <div class="manager-kpi-icon"><i class="fa-solid fa-clock"></i></div>
+                            <div class="manager-kpi-value" data-manager-value="overdueOpenReports">...</div>
+                        </div>
+                        <div class="manager-kpi-label">פתוחות מעל 3 ימים</div>
+                    </article>
+                </section>
+
+                <section class="manager-dashboard-grid">
+                    <article class="manager-panel">
+                        <h2><i class="fa-solid fa-list-check"></i> סטטוס טיפול בפניות</h2>
+                        <div class="status-breakdown">
+                            <div class="status-row">
+                                <span class="status-name">חדש</span>
+                                <div class="status-track"><div class="status-fill new" data-status-fill="new" style="width: 0%"></div></div>
+                                <span class="status-number" data-status-count="new">...</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-name">בטיפול</span>
+                                <div class="status-track"><div class="status-fill progress" data-status-fill="inProgress" style="width: 0%"></div></div>
+                                <span class="status-number" data-status-count="inProgress">...</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-name">ממתין לגורם חיצוני</span>
+                                <div class="status-track"><div class="status-fill waiting" data-status-fill="waitingExternal" style="width: 0%"></div></div>
+                                <span class="status-number" data-status-count="waitingExternal">...</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-name">טופל</span>
+                                <div class="status-track"><div class="status-fill done" data-status-fill="done" style="width: 0%"></div></div>
+                                <span class="status-number" data-status-count="done">...</span>
+                            </div>
+                            <div class="status-row" data-status-row="unknown" hidden>
+                                <span class="status-name">לא ידוע</span>
+                                <div class="status-track"><div class="status-fill" data-status-fill="unknown" style="width: 0%"></div></div>
+                                <span class="status-number" data-status-count="unknown">...</span>
                             </div>
                         </div>
-                    </a>
-                    <a href="reports.html" class="big-action-btn secondary">
-                        <div class="btn-content">
-                            <i class="fa-solid fa-history"></i>
-                            <div>
-                                <strong>דיווחים קודמים</strong>
-                                <span>עקוב אחר הטיפול</span>
-                            </div>
+                    </article>
+
+                    <article class="manager-panel">
+                        <h2><i class="fa-solid fa-bell"></i> פניות שדורשות תשומת לב</h2>
+                        <div class="attention-list" id="managerAttentionList">
+                            <div class="attention-empty">טוען פניות ממסד הנתונים...</div>
                         </div>
-                    </a>
-                </div>
-            </section>
+                    </article>
+                </section>
+            </div>
         </main>
 
         <nav class="mobile-nav" data-mobile-nav></nav>
@@ -85,5 +488,249 @@
 
     <script src="sidebar.js"></script>
     <script src="help-tooltips.js"></script>
+    <script>
+        function isManagerUser(user) {
+            if (!user) return false;
+
+            const role = String(user.role || '').toLowerCase();
+            const roleKey = String(user.role_key || '').toLowerCase();
+
+            return (
+                role === 'manager' ||
+                role === 'ngo_manager' ||
+                roleKey === 'ngo_manager' ||
+                roleKey === 'manager'
+            );
+        }
+
+        function applyHomeRole(user) {
+            const isManager = isManagerUser(user);
+            document.body.classList.toggle('is-manager-home', isManager);
+
+            if (isManager) {
+                loadManagerHomeData();
+            } else if (user) {
+                loadVolunteerHomeData();
+            }
+        }
+
+        function setVolunteerValues(values = {}) {
+            const defaults = {
+                elderlyInContact: 0,
+                totalReports: 0,
+                closedReports: 0
+            };
+
+            Object.entries({ ...defaults, ...values }).forEach(([key, value]) => {
+                const element = document.querySelector(`[data-volunteer-value="${key}"]`);
+                if (element) {
+                    element.textContent = Number(value || 0).toLocaleString('he-IL');
+                }
+            });
+        }
+
+        function countVolunteerElderly(reports = [], myElderlyData = null) {
+            if (myElderlyData) {
+                return myElderlyData.hasAssignedElderly && myElderlyData.elderly?.id ? 1 : 0;
+            }
+
+            const ids = new Set();
+
+            reports.forEach(report => {
+                const elderlyId = Number(report.elderly_id || report.elderlyId || 0);
+                if (elderlyId) {
+                    ids.add(elderlyId);
+                }
+            });
+
+            return ids.size;
+        }
+
+        let volunteerHomeLoaded = false;
+
+        async function loadVolunteerHomeData() {
+            if (volunteerHomeLoaded) return;
+            volunteerHomeLoaded = true;
+
+            try {
+                const [reportsResponse, elderlyResponse] = await Promise.all([
+                    fetch('./api/reports.php', { cache: 'no-store' }),
+                    fetch('./api/my_elderly.php', { cache: 'no-store' }).catch(() => null)
+                ]);
+
+                const reportsData = await reportsResponse.json();
+                const elderlyData = elderlyResponse && elderlyResponse.ok ? await elderlyResponse.json() : null;
+
+                if (!reportsResponse.ok || !reportsData.success) {
+                    throw new Error(reportsData.message || 'לא הצלחנו לטעון את נתוני מסך הבית.');
+                }
+
+                const reports = reportsData.reports || [];
+                const stats = reportsData.stats || {};
+
+                setVolunteerValues({
+                    elderlyInContact: countVolunteerElderly(reports, elderlyData),
+                    totalReports: Number(stats.total ?? reports.length),
+                    closedReports: Number(stats.done ?? reports.filter(report => report.normalized_status === 'טופל' || report.status === 'טופל').length)
+                });
+            } catch (error) {
+                console.error('VOLUNTEER HOME LOAD ERROR:', error);
+                setVolunteerValues();
+            }
+        }
+
+        function setManagerMessage(message, type = 'info') {
+            const box = document.getElementById('managerHomeMessage');
+            if (!box) return;
+
+            box.textContent = message || '';
+            box.className = `manager-home-message ${message ? 'active' : ''} ${type === 'error' ? 'error' : ''}`;
+        }
+
+        function setManagerValues(data) {
+            const values = {
+                openReports: data.openReports,
+                urgentReports: data.urgentReports,
+                elderlyInFollowup: data.elderlyInFollowup,
+                activeVolunteers: data.activeVolunteers,
+                overdueOpenReports: data.overdueOpenReports
+            };
+
+            Object.entries(values).forEach(([key, value]) => {
+                const element = document.querySelector(`[data-manager-value="${key}"]`);
+                if (element) {
+                    element.textContent = Number(value || 0).toLocaleString('he-IL');
+                }
+            });
+        }
+
+        function setStatusBreakdown(statusBreakdown = {}) {
+            const keys = ['new', 'inProgress', 'waitingExternal', 'done', 'unknown'];
+            const values = Object.fromEntries(keys.map(key => [key, Number(statusBreakdown[key] || 0)]));
+            const max = Math.max(...Object.values(values), 1);
+
+            keys.forEach(key => {
+                const countElement = document.querySelector(`[data-status-count="${key}"]`);
+                const fillElement = document.querySelector(`[data-status-fill="${key}"]`);
+                const rowElement = document.querySelector(`[data-status-row="${key}"]`);
+
+                if (countElement) {
+                    countElement.textContent = values[key].toLocaleString('he-IL');
+                }
+
+                if (fillElement) {
+                    fillElement.style.width = `${Math.round((values[key] / max) * 100)}%`;
+                }
+
+                if (rowElement && key === 'unknown') {
+                    rowElement.hidden = values[key] === 0;
+                }
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function attentionTitle(report) {
+            const content = String(report.content || '').trim();
+            const firstLine = content.split(/\r?\n/).find(line => line.trim()) || '';
+            const cleanLine = firstLine.replace(/^תיאור המקרה:\s*/u, '').trim();
+
+            if (!cleanLine) {
+                return `דיווח #${report.id}`;
+            }
+
+            return cleanLine.length > 72 ? `${cleanLine.slice(0, 72)}...` : cleanLine;
+        }
+
+        function urgencyClass(label) {
+            if (label === 'קריטית') return 'critical';
+            if (label === 'דחוף') return 'urgent';
+            if (label === 'בינוני') return 'medium';
+            return 'normal';
+        }
+
+        function daysOpenText(daysOpen) {
+            const days = Number(daysOpen || 0);
+
+            if (days === 0) return 'היום';
+            if (days === 1) return 'לפני יום';
+
+            return `לפני ${days.toLocaleString('he-IL')} ימים`;
+        }
+
+        function renderAttentionReports(reports = []) {
+            const list = document.getElementById('managerAttentionList');
+            if (!list) return;
+
+            if (!reports.length) {
+                list.innerHTML = '<div class="attention-empty">אין פניות להצגה.</div>';
+                return;
+            }
+
+            list.innerHTML = reports.map(report => {
+                const label = report.urgencyLabel || 'לא ידוע';
+                const levelClass = urgencyClass(label);
+
+                return `
+                    <article class="attention-card ${levelClass}">
+                        <div>
+                            <div class="attention-title">${escapeHtml(attentionTitle(report))}</div>
+                            <div class="attention-meta">
+                                <span>עיר: ${escapeHtml(report.city || 'לא צוין')}</span>
+                                <span>זמן פתיחה: ${escapeHtml(daysOpenText(report.daysOpen))}</span>
+                                <span>אחראי: ${escapeHtml(report.responsible || 'ללא אחראי')}</span>
+                            </div>
+                        </div>
+                        <span class="urgency-pill ${levelClass}">${escapeHtml(label)}</span>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        let managerHomeLoaded = false;
+
+        async function loadManagerHomeData() {
+            if (managerHomeLoaded) return;
+            managerHomeLoaded = true;
+            setManagerMessage('טוען נתונים ממסד הנתונים...');
+
+            try {
+                const response = await fetch('./api/manager_home.php', { cache: 'no-store' });
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'לא הצלחנו לטעון את נתוני מסך הבית.');
+                }
+
+                setManagerValues(data);
+                setStatusBreakdown(data.statusBreakdown || {});
+                renderAttentionReports(data.attentionReports || []);
+                setManagerMessage('');
+            } catch (error) {
+                console.error('MANAGER HOME LOAD ERROR:', error);
+                setManagerMessage(error.message || 'שגיאה בטעינת נתוני מסך הבית.', 'error');
+                setManagerValues({});
+                setStatusBreakdown({});
+                renderAttentionReports([]);
+            }
+        }
+
+        window.addEventListener('hiburim:user-ready', event => {
+            applyHomeRole(event.detail);
+        });
+
+        if (window.HiburimCurrentUser) {
+            applyHomeRole(window.HiburimCurrentUser);
+        }
+
+        window.HiburimSidebar?.getCurrentUser?.().then(applyHomeRole);
+    </script>
 </body>
 </html>

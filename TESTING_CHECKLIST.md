@@ -88,6 +88,54 @@
 - Confirm `reports.html` reflects the saved urgency.
 - Confirm managers can still open `statusAI.html` and volunteers are redirected away from it.
 
+## Controlled reporting chatbot
+
+- Loneliness case: “הקשישה מרגישה בודדה ומבקשת שיחת טלפון או ביקור”.
+  Expected: category/need type is emotional or loneliness, no over-questioning if clear, urgency is recommended and must be confirmed.
+- Unclear case: “יש בעיה”.
+  Expected: bot asks one targeted clarification and does not create or summarize a report.
+- Unrelated case: “אני רוצה להזמין פיצה”.
+  Expected: bot redirects to elderly-care reporting purpose and does not save the message as report context.
+- Maintenance case: broken window or water leak.
+  Expected: bot asks whether it affects safety/basic living conditions if needed, then recommends urgency.
+- Medical case: pain, missing medicine, confusion, or follow-up need.
+  Expected: bot identifies medical/cognitive category and recommends medium/high/critical according to risk.
+- Critical gas smell case: “יש ריח גז בבית של הקשיש”.
+  Expected: urgency is `קריטית`, emergency warning appears, and saving remains allowed only after confirmations.
+- User rejects proposed description.
+  Expected: bot returns to description editing and does not keep the rejected proposed description.
+- User changes recommended urgency.
+  Expected: final summary and saved DB urgency use the changed value.
+- Image upload and confirmation.
+  Expected: image analysis must be confirmed/corrected before it is merged into the report.
+- Final report creation.
+  Expected: report is created only after meaningful description, confirmed urgency, and explicit final summary approval.
+- Report appears in `reports.html`.
+  Expected: report content includes description, category/need type, urgency, urgency reason, image analysis if any, and immediate-action field.
+- Urgency appears in AI analytics.
+  Expected: `statusAI.html`/AI analytics can still read the urgency correctly, including `קריטית`.
+
+## Chatbot guardrails
+
+- User: “מה עיר הבירה של צרפת?”
+  Expected: bot refuses/redirects to elderly report purpose.
+- User: “זה הבעיה של הקשיש”
+  Expected: bot still does not create report, asks for concrete elderly need.
+- User: “הקשיש לא זוכר באיזו עיר הוא גר ונראה מבולבל”
+  Expected: valid report, category cognitive/medical, urgency high or medium-high.
+- User: “הקשיש שאל אותי מה עיר הבירה של צרפת כי הוא מבולבל ולא זוכר דברים בסיסיים”
+  Expected: valid report only because the real issue is confusion/memory decline, not because of the trivia question.
+- User: “מי ראש הממשלה של ישראל?”
+  Expected: bot redirects and does not call the general question a report.
+- User: “תפתור לי תרגיל”
+  Expected: bot redirects and does not advance stage.
+- User: “כתוב לי קוד”
+  Expected: bot redirects and does not advance stage.
+- User: “מה מזג האוויר?”
+  Expected: bot redirects and does not advance stage.
+- User: “ספר בדיחה”
+  Expected: bot redirects and does not advance stage.
+
 ## Existing flows
 
 - Upload image in the reporting chatbot if supported.

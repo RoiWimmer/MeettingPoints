@@ -200,7 +200,8 @@
             created_at: timestamp,
             updated_at: timestamp,
             report_created: false,
-            report_id: null
+            report_id: null,
+            report_number: null
         };
     }
 
@@ -320,8 +321,8 @@
 
                 timers.push(setTimeout(() => {
                     cycle();
-                }, randomDelay(500, 900)));
-            }, randomDelay(6500, 7600)));
+                }, randomDelay(1000, 4000)));
+            }, randomDelay(1000, 4000)));
         };
 
         cycle();
@@ -347,7 +348,7 @@
         removeTypingIndicator();
     }
 
-    function randomDelay(min = 500, max = 1100) {
+    function randomDelay(min = 1000, max = 4000) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
@@ -377,7 +378,14 @@
                 btn.type = 'button';
                 btn.className = `chat-action-btn ${action.variant || 'secondary'}`;
                 btn.textContent = action.label;
-                btn.addEventListener('click', () => sendAction(action.action, action.label));
+                btn.addEventListener('click', () => {
+                    if (action.client_only && action.action === 'go_reports') {
+                        window.location.href = './reports.html';
+                        return;
+                    }
+
+                    sendAction(action.action, action.label);
+                });
                 actionsEl.appendChild(btn);
             });
 
@@ -433,12 +441,13 @@
         lockChat(CHAT_ENDED_MESSAGE);
     }
 
-    function closeCurrentChat(reportId = null) {
+    function closeCurrentChat(reportId = null, reportNumber = null) {
         if (!window.activeConversation) return;
 
         window.activeConversation.status = 'closed';
         window.activeConversation.report_created = true;
         window.activeConversation.report_id = reportId || window.activeConversation.report_id || null;
+        window.activeConversation.report_number = reportNumber || window.activeConversation.report_number || null;
         persistActiveConversation();
         lockChat(CHAT_ENDED_MESSAGE);
     }
@@ -539,7 +548,7 @@
         }
 
         if (data.report_created === true && data.conversation_status === 'closed' && data.report_id) {
-            closeCurrentChat(data.report_id || null);
+            closeCurrentChat(data.report_id || null, data.report_number || null);
             return;
         }
 
@@ -548,6 +557,7 @@
                 window.activeConversation.status = 'closed';
                 window.activeConversation.report_created = false;
                 window.activeConversation.report_id = null;
+                window.activeConversation.report_number = null;
                 persistActiveConversation();
             }
 
