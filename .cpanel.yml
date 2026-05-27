@@ -1,7 +1,7 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/isroivi/public_html/Meetting_Points_AI_test/
+    - export DEPLOYPATH=/home/isroiwi/public_html/Meetting_Points_AI_test/
     - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R api $DEPLOYPATH
     - /bin/cp -R assets $DEPLOYPATH
