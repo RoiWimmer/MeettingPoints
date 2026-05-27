@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>נקודות חיבור - יומן</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="sidebar.css">
+    <link rel="stylesheet" href="help-tooltips.css">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Heebo:wght@500;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .calendar-layout {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 20px;
+            padding: 22px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .panel h2 {
+            margin: 0 0 16px;
+            color: var(--dark-blue);
+            font-size: 1.35rem;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(42px, 1fr));
+            gap: 8px;
+        }
+
+        .weekday,
+        .day {
+            min-height: 52px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+        }
+
+        .weekday {
+            min-height: 30px;
+            color: #94a3b8;
+            font-size: 0.84rem;
+        }
+
+        .day {
+            background: #f8fafc;
+            color: #334155;
+            border: 1px solid #eef2f7;
+            position: relative;
+        }
+
+        .day.muted {
+            color: #cbd5e1;
+            background: #f8fafc;
+        }
+
+        .day.today {
+            background: #fff7ed;
+            color: var(--primary-orange);
+            border-color: #fed7aa;
+        }
+
+        .day.has-event::after {
+            content: "";
+            position: absolute;
+            bottom: 9px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--primary-orange);
+        }
+
+        .agenda-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .agenda-item {
+            display: grid;
+            grid-template-columns: 68px 1fr;
+            gap: 12px;
+            align-items: center;
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 12px;
+        }
+
+        .agenda-time {
+            color: var(--primary-orange);
+            font-weight: 800;
+        }
+
+        .agenda-item strong {
+            display: block;
+            color: var(--dark-blue);
+            margin-bottom: 3px;
+        }
+
+        .agenda-item span {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+        }
+
+        @media (max-width: 900px) {
+            .calendar-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <aside class="sidebar" data-sidebar></aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="welcome-text">
+                    <h1 class="title-with-help">
+                        יומן
+                        <button type="button" class="help-icon" data-tooltip="היומן מרכז ביקורים, שיחות ומשימות המשך מול קשישים ומתנדבים." aria-label="מידע נוסף">?</button>
+                    </h1>
+                    <p>פגישות, ביקורי בית ומשימות קרובות במקום אחד.</p>
+                </div>
+            </header>
+
+            <section class="calendar-layout">
+                <div class="panel">
+                    <h2>מאי 2026</h2>
+                    <div class="calendar-grid" aria-label="יומן חודשי">
+                        <div class="weekday">א</div>
+                        <div class="weekday">ב</div>
+                        <div class="weekday">ג</div>
+                        <div class="weekday">ד</div>
+                        <div class="weekday">ה</div>
+                        <div class="weekday">ו</div>
+                        <div class="weekday">ש</div>
+                        <div class="day muted">26</div>
+                        <div class="day muted">27</div>
+                        <div class="day muted">28</div>
+                        <div class="day muted">29</div>
+                        <div class="day muted">30</div>
+                        <div class="day">1</div>
+                        <div class="day">2</div>
+                        <div class="day">3</div>
+                        <div class="day has-event">4</div>
+                        <div class="day">5</div>
+                        <div class="day">6</div>
+                        <div class="day has-event">7</div>
+                        <div class="day">8</div>
+                        <div class="day">9</div>
+                        <div class="day">10</div>
+                        <div class="day">11</div>
+                        <div class="day has-event">12</div>
+                        <div class="day">13</div>
+                        <div class="day">14</div>
+                        <div class="day">15</div>
+                        <div class="day">16</div>
+                        <div class="day today has-event">17</div>
+                        <div class="day">18</div>
+                        <div class="day">19</div>
+                        <div class="day">20</div>
+                        <div class="day has-event">21</div>
+                        <div class="day">22</div>
+                        <div class="day">23</div>
+                        <div class="day">24</div>
+                        <div class="day">25</div>
+                        <div class="day">26</div>
+                        <div class="day">27</div>
+                        <div class="day has-event">28</div>
+                        <div class="day">29</div>
+                        <div class="day">30</div>
+                        <div class="day">31</div>
+                        <div class="day muted">1</div>
+                        <div class="day muted">2</div>
+                        <div class="day muted">3</div>
+                        <div class="day muted">4</div>
+                        <div class="day muted">5</div>
+                        <div class="day muted">6</div>
+                    </div>
+                </div>
+
+                <aside class="panel">
+                    <h2 class="section-title-with-help">היום <button type="button" class="help-icon" data-tooltip="המשימות והפגישות הקרובות שמומלץ לטפל בהן היום." aria-label="מידע נוסף">?</button></h2>
+                    <div class="agenda-list">
+                        <div class="agenda-item">
+                            <div class="agenda-time">09:30</div>
+                            <div>
+                                <strong>שיחת מעקב עם שרה לוי</strong>
+                                <span>בדיקת סטטוס טיפול בבקשת תרופות.</span>
+                            </div>
+                        </div>
+                        <div class="agenda-item">
+                            <div class="agenda-time">12:00</div>
+                            <div>
+                                <strong>שיוך מתנדב חדש</strong>
+                                <span>תיאום ביקור בית באזור חולון.</span>
+                            </div>
+                        </div>
+                        <div class="agenda-item">
+                            <div class="agenda-time">16:15</div>
+                            <div>
+                                <strong>סיכום דיווחים פתוחים</strong>
+                                <span>מעבר על פניות דחופות לפני סוף היום.</span>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </section>
+        </main>
+    </div>
+
+    <script src="sidebar.js"></script>
+    <script src="help-tooltips.js"></script>
+</body>
+</html>

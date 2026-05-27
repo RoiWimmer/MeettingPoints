@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>נקודות חיבור - אודות הפרויקט</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="sidebar.css">
+    <link rel="stylesheet" href="help-tooltips.css">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Heebo:wght@500;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .about-slider {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .about-slide {
+            display: none;
+            min-height: 430px;
+            padding: 34px;
+            animation: slideIn 0.28s ease;
+        }
+
+        .about-slide.is-active {
+            display: grid;
+            grid-template-columns: 76px 1fr;
+            gap: 22px;
+            align-items: start;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-14px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .about-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #f1a340, #ff7e5f);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.45rem;
+            box-shadow: 0 12px 24px rgba(241, 163, 64, 0.22);
+        }
+
+        .about-slide-kicker {
+            color: var(--primary-orange);
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .about-slide h2 {
+            margin: 0 0 12px;
+            color: var(--dark-blue);
+            font-size: clamp(1.55rem, 3vw, 2.15rem);
+            font-weight: 800;
+        }
+
+        .about-slide p {
+            margin: 0;
+            color: var(--text-muted);
+            line-height: 1.7;
+            font-size: 1.08rem;
+            max-width: 760px;
+        }
+
+        .about-points,
+        .about-flow {
+            display: grid;
+            gap: 12px;
+            margin-top: 20px;
+            max-width: 780px;
+        }
+
+        .about-point,
+        .about-flow-step {
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 13px 14px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            font-weight: 700;
+        }
+
+        .about-flow-step {
+            display: grid;
+            grid-template-columns: 36px 1fr;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .about-flow-step span:first-child {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            background: #fff7ed;
+            color: var(--primary-orange);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+        }
+
+        .about-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            direction: rtl;
+            border-top: 1px solid #f1f5f9;
+            padding: 16px 20px;
+            background: #fff;
+        }
+
+        .about-arrow {
+            border: 0;
+            border-radius: 12px;
+            padding: 10px 14px;
+            background: #fff7ed;
+            color: var(--primary-orange);
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s ease;
+        }
+
+        .about-arrow:hover,
+        .about-arrow:focus-visible {
+            background: var(--primary-orange);
+            color: white;
+            outline: none;
+        }
+
+        .about-progress {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--text-muted);
+            font-weight: 800;
+        }
+
+        .about-dots {
+            display: flex;
+            gap: 7px;
+            direction: rtl;
+        }
+
+        .about-dot {
+            width: 9px;
+            height: 9px;
+            border: 0;
+            border-radius: 50%;
+            padding: 0;
+            background: #cbd5e1;
+            cursor: pointer;
+        }
+
+        .about-dot.is-active {
+            width: 24px;
+            border-radius: 999px;
+            background: var(--primary-orange);
+        }
+
+        @media (max-width: 760px) {
+            .about-slide,
+            .about-slide.is-active {
+                grid-template-columns: 1fr;
+                padding: 24px;
+                min-height: 480px;
+            }
+
+            .about-controls {
+                gap: 10px;
+                padding: 14px;
+            }
+
+            .about-arrow span {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <aside class="sidebar" data-sidebar></aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="welcome-text">
+                    <h1 class="title-with-help">
+                        אודות הפרויקט
+                        <button type="button" class="help-icon" data-tooltip="לחצו על החצים כדי לעבור בין חלקי ההסבר על המערכת." aria-label="מידע נוסף">?</button>
+                    </h1>
+                    <p class="page-explanation">היכרות קצרה עם נקודות חיבור, צעד אחר צעד.</p>
+                </div>
+            </header>
+
+            <section class="about-slider" aria-label="מצגת אודות הפרויקט" tabindex="0">
+                <article class="about-slide is-active">
+                    <div class="about-icon"><i class="fa-solid fa-hands-holding-circle"></i></div>
+                    <div>
+                        <div class="about-slide-kicker">נקודות חיבור</div>
+                        <h2>מערכת אחת שמחברת בין דיווח, טיפול ותובנות</h2>
+                        <p>המערכת מחברת בין דיווח מהשטח לבין טיפול מסודר: מתנדבים מדווחים, העמותה מנהלת סטטוסים, והמידע הופך לתמונה ברורה שאפשר לפעול לפיה.</p>
+                        <div class="about-points">
+                            <div class="about-point">מתאימה לעבודה יומיומית של מתנדבים, רכזים ועמותות.</div>
+                            <div class="about-point">שומרת את כל הפניות במקום אחד, עם מעקב ברור.</div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="about-slide">
+                    <div class="about-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <div>
+                        <div class="about-slide-kicker">האתגר</div>
+                        <h2>מה הבעיה?</h2>
+                        <p>עמותות וגורמי סיוע מקבלים מידע ממקורות שונים, ולעיתים קשה לרכז, לתעדף ולעקוב אחרי צרכים של קשישים בזמן אמת.</p>
+                        <div class="about-points">
+                            <div class="about-point">דיווחים מגיעים משיחות, הודעות, מתנדבים וטפסים.</div>
+                            <div class="about-point">קשה לדעת במה לטפל קודם ומה עדיין פתוח.</div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="about-slide">
+                    <div class="about-icon"><i class="fa-solid fa-route"></i></div>
+                    <div>
+                        <div class="about-slide-kicker">הפתרון</div>
+                        <h2>מה נקודות חיבור עושה?</h2>
+                        <p>נקודות חיבור מרכזת דיווחים מהשטח, הופכת אותם למידע מובנה, ומאפשרת לעמותה לנהל טיפול, סטטוסים ותובנות במקום אחד.</p>
+                        <div class="about-points">
+                            <div class="about-point">כל דיווח הופך למקרה שניתן לעקוב אחריו.</div>
+                            <div class="about-point">המערכת עוזרת להבין דחיפות, סוג צורך וסטטוס טיפול.</div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="about-slide">
+                    <div class="about-icon"><i class="fa-solid fa-list-check"></i></div>
+                    <div>
+                        <div class="about-slide-kicker">תהליך העבודה</div>
+                        <h2>איך זה עובד?</h2>
+                        <p>המערכת מלווה את הדיווח מהרגע שהוא מגיע מהשטח ועד המשך טיפול ומעקב.</p>
+                        <div class="about-flow">
+                            <div class="about-flow-step"><span>1</span><div>מתנדב מדווח על צורך דרך צ'אט או טופס.</div></div>
+                            <div class="about-flow-step"><span>2</span><div>המערכת אוספת פרטים חסרים ומסדרת את המידע.</div></div>
+                            <div class="about-flow-step"><span>3</span><div>העמותה ממשיכה טיפול, שיוך ומעקב לפי סטטוס.</div></div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="about-slide">
+                    <div class="about-icon"><i class="fa-solid fa-users"></i></div>
+                    <div>
+                        <div class="about-slide-kicker">קהלי יעד</div>
+                        <h2>למי המערכת מיועדת?</h2>
+                        <p>המערכת מיועדת לעמותות, מתנדבים, רכזים וגורמי טיפול שרוצים לנהל פניות בצורה ברורה ומסודרת.</p>
+                        <div class="about-points">
+                            <div class="about-point">מתנדבים שמזהים צרכים בשטח.</div>
+                            <div class="about-point">רכזים שמנהלים טיפול, תיעדוף ומעקב.</div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="about-slide">
+                    <div class="about-icon"><i class="fa-solid fa-building-ngo"></i></div>
+                    <div>
+                        <div class="about-slide-kicker">ערך לעמותה</div>
+                        <h2>מה הערך לעמותה?</h2>
+                        <p>ריכוז פניות, מעקב אחר סטטוסים, זיהוי עומסים, הבנת צרכים חוזרים והפקת דוחות שמסייעים בקבלת החלטות.</p>
+                        <div class="about-points">
+                            <div class="about-point">תמונה ניהולית ברורה של כל המקרים הפתוחים.</div>
+                            <div class="about-point">זיהוי חוסרים במשאבים ואזורים שדורשים תגבור.</div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="about-slide">
+                    <div class="about-icon"><i class="fa-solid fa-hand-holding-heart"></i></div>
+                    <div>
+                        <div class="about-slide-kicker">ערך למתנדבים</div>
+                        <h2>מה הערך למתנדבים?</h2>
+                        <p>דיווח פשוט ומהיר מהשטח, פחות בלבול לגבי פרטים חסרים, ותחושה שהמידע עובר לגורם המתאים להמשך טיפול.</p>
+                        <div class="about-points">
+                            <div class="about-point">אפשר לתאר מקרה בשפה חופשית.</div>
+                            <div class="about-point">המערכת עוזרת להשלים את הפרטים החשובים.</div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="about-slide">
+                    <div class="about-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                    <div>
+                        <div class="about-slide-kicker">AI במערכת</div>
+                        <h2>יכולות AI במערכת</h2>
+                        <p>המערכת יכולה לסייע בסיכום דיווחים, זיהוי סוגי צרכים, יצירת דוחות חכמים והפקת תובנות מתוך הנתונים.</p>
+                        <div class="about-points">
+                            <div class="about-point">סיכום דיווחים והפיכת טקסט חופשי למידע מובנה.</div>
+                            <div class="about-point">יצירת דוחות לפי תקופה, אזור, סוג צורך או סטטוס.</div>
+                        </div>
+                    </div>
+                </article>
+
+                <div class="about-controls">
+                    <button type="button" class="about-arrow" id="aboutPrev" aria-label="שקופית קודמת">
+                        <i class="fa-solid fa-chevron-right"></i>
+                        <span>הקודם</span>
+                    </button>
+                    <div class="about-progress" aria-live="polite">
+                        <span id="aboutCounter">1 / 8</span>
+                        <div class="about-dots" id="aboutDots" aria-label="בחירת שקופית"></div>
+                    </div>
+                    <button type="button" class="about-arrow" id="aboutNext" aria-label="שקופית הבאה">
+                        <span>הבא</span>
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="sidebar.js"></script>
+    <script src="help-tooltips.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const slider = document.querySelector('.about-slider');
+            const slides = Array.from(document.querySelectorAll('.about-slide'));
+            const dotsWrap = document.getElementById('aboutDots');
+            const counter = document.getElementById('aboutCounter');
+            let activeIndex = 0;
+
+            const dots = slides.map((_, index) => {
+                const dot = document.createElement('button');
+                dot.type = 'button';
+                dot.className = 'about-dot';
+                dot.setAttribute('aria-label', `מעבר לשקופית ${index + 1}`);
+                dot.addEventListener('click', () => showSlide(index));
+                dotsWrap.appendChild(dot);
+                return dot;
+            });
+
+            function showSlide(index) {
+                activeIndex = (index + slides.length) % slides.length;
+                slides.forEach((slide, slideIndex) => {
+                    const isActive = slideIndex === activeIndex;
+                    slide.classList.toggle('is-active', isActive);
+                    slide.setAttribute('aria-hidden', String(!isActive));
+                });
+                dots.forEach((dot, dotIndex) => {
+                    dot.classList.toggle('is-active', dotIndex === activeIndex);
+                    dot.setAttribute('aria-current', dotIndex === activeIndex ? 'true' : 'false');
+                });
+                counter.textContent = `${activeIndex + 1} / ${slides.length}`;
+            }
+
+            document.getElementById('aboutPrev').addEventListener('click', () => showSlide(activeIndex - 1));
+            document.getElementById('aboutNext').addEventListener('click', () => showSlide(activeIndex + 1));
+
+            slider.addEventListener('keydown', event => {
+                if (event.key === 'ArrowRight') showSlide(activeIndex - 1);
+                if (event.key === 'ArrowLeft') showSlide(activeIndex + 1);
+            });
+
+            showSlide(0);
+        });
+    </script>
+</body>
+</html>

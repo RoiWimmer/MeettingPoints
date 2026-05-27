@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>נקודות חיבור - פרופיל</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="sidebar.css">
+    <link rel="stylesheet" href="help-tooltips.css">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Heebo:wght@500;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .profile-layout {
+            display: grid;
+            grid-template-columns: 0.85fr 1.15fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .profile-card,
+        .info-card {
+            background: white;
+            border-radius: 20px;
+            padding: 22px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        .profile-card {
+            text-align: center;
+        }
+
+        .avatar {
+            width: 86px;
+            height: 86px;
+            border-radius: 50%;
+            margin: 0 auto 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f1a340, #ff7e5f);
+            color: white;
+            font-size: 2rem;
+            font-weight: 800;
+            box-shadow: 0 12px 24px rgba(241, 163, 64, 0.22);
+        }
+
+        .profile-card h2,
+        .info-card h2 {
+            margin: 0 0 10px;
+            color: var(--dark-blue);
+        }
+
+        .role-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            padding: 7px 12px;
+            background: #fff7ed;
+            color: var(--primary-orange);
+            font-weight: 800;
+        }
+
+        .detail-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .detail-row:last-child {
+            border-bottom: 0;
+        }
+
+        .detail-label {
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .detail-value {
+            color: var(--dark-blue);
+            font-weight: 800;
+            text-align: left;
+        }
+
+        .settings-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 14px;
+        }
+
+        .setting-item strong {
+            display: block;
+            color: var(--dark-blue);
+            margin-bottom: 3px;
+        }
+
+        .setting-item span {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+        }
+
+        .status-badge {
+            color: #059669;
+            background: #ecfdf5;
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 900px) {
+            .profile-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <aside class="sidebar" data-sidebar></aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="welcome-text">
+                    <h1 class="title-with-help">
+                        פרופיל
+                        <button type="button" class="help-icon" data-tooltip="כאן מוצגים פרטי המשתמש, סוג החשבון והעדפות בסיסיות." aria-label="מידע נוסף">?</button>
+                    </h1>
+                    <p>פרטי המשתמש והגדרות החשבון שלך במערכת.</p>
+                </div>
+            </header>
+
+            <section class="profile-layout">
+                <aside class="profile-card">
+                    <div class="avatar">י</div>
+                    <h2>יוסי מתנדב</h2>
+                    <span class="role-pill"><i class="fa-solid fa-id-badge"></i> מתנדב פעיל</span>
+                    <div class="detail-list">
+                        <div class="detail-row">
+                            <span class="detail-label">סוג חשבון</span>
+                            <span class="detail-value">מתנדב שטח</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">אזור פעילות</span>
+                            <span class="detail-value">חולון ובת ים</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">סטטוס</span>
+                            <span class="detail-value">פעיל</span>
+                        </div>
+                    </div>
+                </aside>
+
+                <section class="info-card">
+                    <h2 class="section-title-with-help">פרטי קשר <button type="button" class="help-icon" data-tooltip="פרטים שבעזרתם הרכזים והעמותה יכולים ליצור קשר עם המשתמש." aria-label="מידע נוסף">?</button></h2>
+                    <div class="detail-list">
+                        <div class="detail-row">
+                            <span class="detail-label">טלפון</span>
+                            <span class="detail-value">050-123-4567</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">אימייל</span>
+                            <span class="detail-value">volunteer@hiburim.org</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">איש קשר בעמותה</span>
+                            <span class="detail-value">מיכל רכזת</span>
+                        </div>
+                    </div>
+
+                    <h2 style="margin-top:28px;">הגדרות ומידע</h2>
+                    <div class="settings-list">
+                        <div class="setting-item">
+                            <div>
+                                <strong>התראות על דיווחים דחופים</strong>
+                                <span>קבלת עדכון כאשר נפתח צורך דחוף באזור הפעילות.</span>
+                            </div>
+                            <span class="status-badge">פעיל</span>
+                        </div>
+                        <div class="setting-item">
+                            <div>
+                                <strong>סיכום שבועי</strong>
+                                <span>דוח קצר על משימות, דיווחים וסטטוסים פתוחים.</span>
+                            </div>
+                            <span class="status-badge">פעיל</span>
+                        </div>
+                    </div>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <script src="sidebar.js"></script>
+    <script src="help-tooltips.js"></script>
+</body>
+</html>
