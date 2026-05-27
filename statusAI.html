@@ -911,6 +911,21 @@
       animation: fadeIn 0.2s ease;
     }
 
+    .data-source-message {
+      display: none;
+      margin: 0 0 18px;
+      padding: 12px 14px;
+      border: 1px solid #fed7aa;
+      background: #fff7ed;
+      color: #b45309;
+      border-radius: 14px;
+      font-weight: 800;
+    }
+
+    .data-source-message.active {
+      display: block;
+    }
+
 
 
     /* Redesigned overview screen */
@@ -1216,6 +1231,8 @@
         </div>
       </header>
 
+      <div id="dataSourceMessage" class="data-source-message"></div>
+
       <nav class="tabs no-print">
         <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')"><i class="fa-solid fa-chart-line"></i> סקירה</button>
         <button class="tab-btn" data-tab="needs" onclick="switchTab('needs')"><i class="fa-solid fa-list-check"></i> צרכים</button>
@@ -1251,9 +1268,60 @@
           </div>
         </section>
 
+        <section class="overview-charts-grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title section-title-with-help">פילוח סטטוסים <button type="button" class="help-icon" data-tooltip="כמה דיווחים הוגשו, בטיפול או טופלו בתקופה שנבחרה." aria-label="מידע נוסף">?</button></h2>
+                <p class="card-subtitle">תמונת מצב של התקדמות הטיפול.</p>
+              </div>
+              <span class="pill blue">סטטוס</span>
+            </div>
+            <div class="donut-wrap">
+              <div id="statusDonut" class="donut" data-center="0\Aדיווחים"></div>
+              <div id="statusLegend" class="legend"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title section-title-with-help">פילוח דחיפות <button type="button" class="help-icon" data-tooltip="כמה דיווחים מסווגים כדחיפות נמוכה, בינונית, גבוהה או קריטית." aria-label="מידע נוסף">?</button></h2>
+                <p class="card-subtitle">מסייע להבין עומס וסיכון תפעולי.</p>
+              </div>
+              <span class="pill red">דחיפות</span>
+            </div>
+            <div id="urgencyBars" class="bar-list"></div>
+          </div>
+        </section>
+
         <section class="overview-insights-section">
           <h2 class="section-title-with-help"><i class="fa-solid fa-lightbulb"></i> תובנות אוטומטיות מהשטח <button type="button" class="help-icon" data-tooltip="כאן מוצגים נתונים מסכמים שעוזרים להבין אילו צרכים חוזרים על עצמם." aria-label="מידע נוסף">?</button></h2>
           <div class="overview-insight-grid" id="overviewInsightGrid"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title section-title-with-help">דיווחים שדורשים תשומת לב <button type="button" class="help-icon" data-tooltip="מקרים דחופים, פתוחים זמן רב, או כאלה שחסר להם גורם מטפל." aria-label="מידע נוסף">?</button></h2>
+              <p class="card-subtitle">מקרים דחופים, פתוחים מעל 5 ימים, או עם חוסר משאב/גורם מטפל.</p>
+            </div>
+            <span class="pill red">מעקב</span>
+          </div>
+          <table class="attention-table">
+            <thead>
+              <tr>
+                <th>צורך</th>
+                <th>אזור</th>
+                <th>דחיפות</th>
+                <th>סטטוס</th>
+                <th>ימים פתוח</th>
+                <th>גורם מטפל</th>
+                <th>סיבה</th>
+              </tr>
+            </thead>
+            <tbody id="attentionRows"></tbody>
+          </table>
         </section>
       </section>
 
@@ -1404,48 +1472,52 @@
   <script src="sidebar.js"></script>
   <script src="help-tooltips.js"></script>
   <script>
-    const reportsData = [
-      { id: 1, createdAt: "2026-05-01", needType: "מזון", area: "חולון", urgency: "גבוהה", status: "פתוח", daysOpen: 6, assignedOrg: null, hasResourceGap: true },
-      { id: 2, createdAt: "2026-05-02", needType: "תרופות", area: "בת ים", urgency: "גבוהה", status: "בטיפול", daysOpen: 3, assignedOrg: "עמותת סיוע רפואי", hasResourceGap: false },
-      { id: 3, createdAt: "2026-05-03", needType: "בדידות", area: "חולון", urgency: "בינונית", status: "פתוח", daysOpen: 8, assignedOrg: null, hasResourceGap: true },
-      { id: 4, createdAt: "2026-05-04", needType: "ליווי רפואי", area: "תל אביב", urgency: "גבוהה", status: "ממתין לגורם חיצוני", daysOpen: 7, assignedOrg: null, hasResourceGap: true },
-      { id: 5, createdAt: "2026-05-05", needType: "תיקונים בבית", area: "ראשון לציון", urgency: "נמוכה", status: "נסגר", daysOpen: 2, assignedOrg: "מתנדבי קהילה", hasResourceGap: false },
-      { id: 6, createdAt: "2026-05-06", needType: "סיוע מול רשויות", area: "רמת גן", urgency: "בינונית", status: "בטיפול", daysOpen: 4, assignedOrg: "מוקד זכויות", hasResourceGap: false },
-      { id: 7, createdAt: "2026-05-07", needType: "מזון", area: "חולון", urgency: "גבוהה", status: "פתוח", daysOpen: 5, assignedOrg: null, hasResourceGap: true },
-      { id: 8, createdAt: "2026-05-08", needType: "בדידות", area: "בת ים", urgency: "בינונית", status: "נסגר", daysOpen: 1, assignedOrg: "מערך ביקורי בית", hasResourceGap: false },
-      { id: 9, createdAt: "2026-05-09", needType: "תרופות", area: "חולון", urgency: "גבוהה", status: "ממתין לגורם חיצוני", daysOpen: 6, assignedOrg: null, hasResourceGap: true },
-      { id: 10, createdAt: "2026-05-10", needType: "מזון", area: "תל אביב", urgency: "בינונית", status: "בטיפול", daysOpen: 2, assignedOrg: "בנק מזון", hasResourceGap: false },
-      { id: 11, createdAt: "2026-04-28", needType: "ליווי רפואי", area: "ראשון לציון", urgency: "גבוהה", status: "פתוח", daysOpen: 9, assignedOrg: null, hasResourceGap: true },
-      { id: 12, createdAt: "2026-04-26", needType: "סיוע מול רשויות", area: "חולון", urgency: "בינונית", status: "נסגר", daysOpen: 5, assignedOrg: "מוקד זכויות", hasResourceGap: false },
-      { id: 13, createdAt: "2026-04-22", needType: "בדידות", area: "תל אביב", urgency: "נמוכה", status: "בטיפול", daysOpen: 6, assignedOrg: "מתנדבי קהילה", hasResourceGap: false },
-      { id: 14, createdAt: "2026-04-20", needType: "תיקונים בבית", area: "בת ים", urgency: "בינונית", status: "ממתין לגורם חיצוני", daysOpen: 10, assignedOrg: null, hasResourceGap: true },
-      { id: 15, createdAt: "2026-04-18", needType: "מזון", area: "רמת גן", urgency: "גבוהה", status: "נסגר", daysOpen: 2, assignedOrg: "בנק מזון", hasResourceGap: false },
-      { id: 16, createdAt: "2026-04-15", needType: "תרופות", area: "ראשון לציון", urgency: "בינונית", status: "נסגר", daysOpen: 3, assignedOrg: "סיוע רפואי", hasResourceGap: false },
-      { id: 17, createdAt: "2026-04-10", needType: "בדידות", area: "חולון", urgency: "בינונית", status: "פתוח", daysOpen: 11, assignedOrg: null, hasResourceGap: true },
-      { id: 18, createdAt: "2026-04-05", needType: "ליווי רפואי", area: "חולון", urgency: "גבוהה", status: "בטיפול", daysOpen: 7, assignedOrg: "מלווי מרפאות", hasResourceGap: false },
-      { id: 19, createdAt: "2026-03-28", needType: "מזון", area: "בת ים", urgency: "גבוהה", status: "נסגר", daysOpen: 3, assignedOrg: "בנק מזון", hasResourceGap: false },
-      { id: 20, createdAt: "2026-03-18", needType: "סיוע מול רשויות", area: "תל אביב", urgency: "בינונית", status: "נסגר", daysOpen: 4, assignedOrg: "מוקד זכויות", hasResourceGap: false },
-      { id: 21, createdAt: "2026-03-12", needType: "תיקונים בבית", area: "חולון", urgency: "נמוכה", status: "נסגר", daysOpen: 6, assignedOrg: "מתנדבי תחזוקה", hasResourceGap: false },
-      { id: 22, createdAt: "2026-02-25", needType: "בדידות", area: "רמת גן", urgency: "בינונית", status: "נסגר", daysOpen: 3, assignedOrg: "מערך ביקורי בית", hasResourceGap: false },
-      { id: 23, createdAt: "2026-02-20", needType: "תרופות", area: "חולון", urgency: "גבוהה", status: "נסגר", daysOpen: 2, assignedOrg: "סיוע רפואי", hasResourceGap: false },
-      { id: 24, createdAt: "2026-02-11", needType: "מזון", area: "ראשון לציון", urgency: "גבוהה", status: "נסגר", daysOpen: 2, assignedOrg: "בנק מזון", hasResourceGap: false },
-      { id: 25, createdAt: "2026-01-28", needType: "ליווי רפואי", area: "בת ים", urgency: "גבוהה", status: "נסגר", daysOpen: 5, assignedOrg: "מלווי מרפאות", hasResourceGap: false },
-      { id: 26, createdAt: "2026-01-12", needType: "סיוע מול רשויות", area: "חולון", urgency: "נמוכה", status: "נסגר", daysOpen: 8, assignedOrg: "מוקד זכויות", hasResourceGap: false },
-      { id: 27, createdAt: "2025-12-18", needType: "בדידות", area: "תל אביב", urgency: "בינונית", status: "נסגר", daysOpen: 4, assignedOrg: "מערך ביקורי בית", hasResourceGap: false },
-      { id: 28, createdAt: "2025-12-05", needType: "תיקונים בבית", area: "רמת גן", urgency: "נמוכה", status: "נסגר", daysOpen: 6, assignedOrg: "מתנדבי תחזוקה", hasResourceGap: false }
+    let reportsData = [];
+    let usingFallbackData = false;
+    let currentUser = null;
+    let pagePermissions = null;
+
+    const fallbackReportsData = [
+      { id: 'demo-1', createdAt: "2026-05-01", needType: "בדידות", area: "לא ידוע", urgency: "בינונית", status: "הוגש", daysOpen: 6, assignedOrg: null, hasResourceGap: true },
+      { id: 'demo-2', createdAt: "2026-05-04", needType: "בטיחות", area: "לא ידוע", urgency: "גבוהה", status: "בטיפול", daysOpen: 2, assignedOrg: null, hasResourceGap: true },
+      { id: 'demo-3', createdAt: "2026-05-08", needType: "בעיה רפואית", area: "לא ידוע", urgency: "גבוהה", status: "טופל", daysOpen: 1, assignedOrg: "גורם מטפל לדוגמה", hasResourceGap: false }
     ];
 
     let currentReport = null;
 
     const statusColors = {
       "פתוח": "orange",
+      "הוגש": "orange",
       "בטיפול": "blue",
       "ממתין לגורם חיצוני": "amber",
-      "נסגר": "green"
+      "נסגר": "green",
+      "טופל": "green"
     };
 
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function normalizeStatus(status) {
+      if (status === 'חדש' || status === 'פתוח') return 'הוגש';
+      if (status === 'סגור' || status === 'נסגר') return 'טופל';
+      return status || 'הוגש';
+    }
+
+    function isDoneStatus(status) {
+      return normalizeStatus(status) === 'טופל';
+    }
+
     function parseDate(value) {
-      return new Date(value + "T12:00:00");
+      if (!value) return null;
+      const datePart = String(value).slice(0, 10);
+      const parsed = new Date(datePart + "T12:00:00");
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
     }
 
     function getDaysForRange(range) {
@@ -1453,10 +1525,16 @@
     }
 
     function getFilteredReports(range = document.getElementById('globalRange')?.value || 'month', area = 'all') {
-      const maxDate = new Date(Math.max(...reportsData.map(r => parseDate(r.createdAt))));
+      if (!reportsData.length) return [];
+
+      const validDates = reportsData.map(r => parseDate(r.createdAt)).filter(Boolean);
+      const maxDate = validDates.length ? new Date(Math.max(...validDates)) : new Date();
       const from = new Date(maxDate);
       from.setDate(from.getDate() - getDaysForRange(range));
-      return reportsData.filter(r => parseDate(r.createdAt) >= from && (area === 'all' || r.area === area));
+      return reportsData.filter(r => {
+        const date = parseDate(r.createdAt);
+        return date && date >= from && (area === 'all' || r.area === area);
+      });
     }
 
     function countBy(items, key) {
@@ -1474,19 +1552,101 @@
 
     function getStats(data) {
       const total = data.length;
-      const open = data.filter(r => r.status !== "נסגר").length;
-      const urgent = data.filter(r => r.urgency === "גבוהה" && r.status !== "נסגר").length;
-      const closed = data.filter(r => r.status === "נסגר").length;
+      const open = data.filter(r => !isDoneStatus(r.status)).length;
+      const submitted = data.filter(r => normalizeStatus(r.status) === "הוגש").length;
+      const inProgress = data.filter(r => normalizeStatus(r.status) === "בטיפול").length;
+      const urgent = data.filter(r => ["גבוהה", "קריטית"].includes(r.urgency) && !isDoneStatus(r.status)).length;
+      const closed = data.filter(r => isDoneStatus(r.status)).length;
       const gaps = data.filter(r => r.hasResourceGap).length;
       return {
         total,
         open,
+        submitted,
+        inProgress,
         urgent,
         closed,
         gaps,
         closureRate: total ? Math.round((closed / total) * 100) : 0,
-        avgDays: Math.round(avg(data.filter(r => r.status !== "נסגר"), "daysOpen") * 10) / 10
+        avgDays: Math.round(avg(data.filter(r => !isDoneStatus(r.status)), "daysOpen") * 10) / 10
       };
+    }
+
+    function mapBackendReport(report) {
+      const status = normalizeStatus(report.normalized_status || report.status);
+      return {
+        id: report.id,
+        createdAt: String(report.created_at || '').slice(0, 10),
+        needType: report.need_type || report.parsed_category || report.category || 'אחר',
+        area: report.area || 'לא ידוע',
+        urgency: report.urgency || 'בינונית',
+        status,
+        daysOpen: Number(report.days_open || 0),
+        assignedOrg: report.assigned_org || null,
+        hasResourceGap: report.resource_gap === true || report.has_resource_gap === true || report.resource_gap === 1 || report.has_resource_gap === 1 || report.resource_gap === '1' || report.has_resource_gap === '1',
+        description: report.parsed_description || report.description || '',
+        source: report
+      };
+    }
+
+    function setDataSourceMessage(message, active = true) {
+      const box = document.getElementById('dataSourceMessage');
+      if (!box) return;
+      box.textContent = message || '';
+      box.classList.toggle('active', Boolean(active && message));
+    }
+
+    function updateAreaOptions() {
+      const areas = [...new Set(reportsData.map(report => report.area).filter(Boolean))].sort();
+
+      ['needsArea', 'aiArea'].forEach(id => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        const current = select.value || 'all';
+        select.innerHTML = '<option value="all">כל האזורים</option>' + areas.map(area => `<option value="${escapeHtml(area)}">${escapeHtml(area)}</option>`).join('');
+        select.value = areas.includes(current) ? current : 'all';
+      });
+    }
+
+    async function loadReportsData() {
+      try {
+        const response = await fetch('./api/reports.php', { cache: 'no-store' });
+        const payload = await response.json();
+
+        if (response.status === 401 || response.status === 403) {
+          reportsData = [];
+          usingFallbackData = false;
+          setDataSourceMessage(payload.message || 'אין לך הרשאה לצפות בנתוני התובנות.');
+          updateAll();
+          return;
+        }
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || 'reports api failed');
+        }
+
+        currentUser = payload.current_user || null;
+        pagePermissions = payload.permissions || null;
+
+        if (pagePermissions && pagePermissions.can_view_ai === false) {
+          reportsData = [];
+          usingFallbackData = false;
+          setDataSourceMessage('אין לך הרשאה לצפות במסך התובנות והדוחות. המסך מיועד למנהלי עמותה בלבד.');
+          updateAll();
+          return;
+        }
+
+        reportsData = (payload.reports || []).map(mapBackendReport).filter(report => report.createdAt);
+        usingFallbackData = false;
+        setDataSourceMessage('', false);
+      } catch (error) {
+        console.error('STATUS AI REPORTS LOAD ERROR:', error);
+        reportsData = fallbackReportsData;
+        usingFallbackData = true;
+        setDataSourceMessage('לא הצלחנו לטעון נתונים חיים. מוצגים כרגע נתוני הדגמה בלבד.');
+      }
+
+      updateAreaOptions();
+      updateAll();
     }
 
 
@@ -1494,24 +1654,39 @@
     let overviewVolumeChartInstance = null;
     let overviewNeedsChartInstance = null;
 
-    function simulateOverviewAI() {
+    async function simulateOverviewAI() {
+      const prompt = document.getElementById('overviewAiInput')?.value.trim() || 'צור תקציר מנהלים על מצב הדיווחים בתקופה הנבחרת';
       const loader = document.getElementById('overviewAiLoading');
       if (!loader) return;
       loader.style.display = 'block';
       loader.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ה-AI מנתח את בסיס הנתונים ומחולל תובנות...';
-      setTimeout(() => {
-        loader.innerHTML = '<i class="fa-solid fa-check" style="color:#059669"></i> הדוח חולל בהצלחה. ניתן לעבור ללשונית דוחות AI להפקת דוח מלא.';
+
+      try {
+        document.getElementById('aiPrompt').value = prompt;
+        document.getElementById('aiRange').value = document.getElementById('globalRange').value;
+        switchTab('ai');
+        const generated = await generateAIReport();
+        if (!generated) {
+          throw new Error('AI report generation failed');
+        }
+        loader.innerHTML = '<i class="fa-solid fa-check" style="color:#059669"></i> הדוח נוצר על בסיס נתוני הדיווחים החיים.';
+      } catch (error) {
+        console.error('OVERVIEW AI ERROR:', error);
+        loader.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#dc2626"></i> לא הצלחנו ליצור דוח כרגע.';
+      } finally {
         setTimeout(() => {
           loader.style.display = 'none';
           loader.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ה-AI מנתח את בסיס הנתונים ומחולל תובנות...';
-        }, 3200);
-      }, 1800);
+        }, 2600);
+      }
     }
 
     function renderOverview(data) {
       renderOverviewKPIs(data);
       renderOverviewCharts(data);
       renderOverviewInsights(data);
+      renderStatusDonut(data);
+      renderBars('urgencyBars', countBy(data, 'urgency'), 3);
     }
 
     function renderOverviewKPIs(data) {
@@ -1528,13 +1703,28 @@
       ];
       container.innerHTML = cards.map(card => `
         <article class="overview-stat-card">
-          <div class="stat-icon ${card.color}"><i class="fa-solid ${card.icon}"></i></div>
-          <div class="overview-stat-info">
-            <h3 style="${card.small ? 'font-size:0.98rem;' : ''}">${card.value}</h3>
-            <p>${card.title}</p>
-          </div>
+	          <div class="stat-icon ${card.color}"><i class="fa-solid ${card.icon}"></i></div>
+	          <div class="overview-stat-info">
+	            <h3 style="${card.small ? 'font-size:0.98rem;' : ''}">${escapeHtml(card.value)}</h3>
+	            <p>${escapeHtml(card.title)}</p>
+	          </div>
         </article>
       `).join('');
+    }
+
+    function buildMonthlyTrend(data) {
+      const counts = {};
+      data.forEach(report => {
+        const date = parseDate(report.createdAt);
+        if (!date) return;
+        const key = date.toISOString().slice(0, 7);
+        counts[key] = (counts[key] || 0) + 1;
+      });
+
+      return Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0])).map(([key, value]) => ({
+        label: key.slice(5) + '/' + key.slice(2, 4),
+        value
+      }));
     }
 
     function renderOverviewCharts(data) {
@@ -1543,14 +1733,7 @@
       const volumeCanvas = document.getElementById('overviewVolumeChart');
       const needsCanvas = document.getElementById('overviewNeedsChart');
       if (!volumeCanvas || !needsCanvas) return;
-      const monthlyTrend = [
-        { label: 'ינואר', value: 65 },
-        { label: 'פברואר', value: 78 },
-        { label: 'מרץ', value: 105 },
-        { label: 'אפריל', value: 95 },
-        { label: 'מאי', value: 130 },
-        { label: 'יוני', value: 142 }
-      ];
+      const monthlyTrend = buildMonthlyTrend(data);
       const volumeLabels = monthlyTrend.map(item => item.label);
       const volumeData = monthlyTrend.map(item => item.value);
 
@@ -1597,7 +1780,7 @@
           scales: {
             y: {
               beginAtZero: true,
-              suggestedMax: 160,
+	              suggestedMax: Math.max(...volumeData, 5),
               ticks: {
                 stepSize: 20,
                 precision: 0,
@@ -1655,7 +1838,7 @@
       if (!container) return;
       const stats = getStats(data);
       const needs = countBy(data, 'needType');
-      const areas = countBy(data.filter(r => r.urgency === 'גבוהה' && r.status !== 'נסגר'), 'area');
+      const areas = countBy(data.filter(r => ["גבוהה", "קריטית"].includes(r.urgency) && !isDoneStatus(r.status)), 'area');
       const topNeed = Object.entries(needs).sort((a,b) => b[1] - a[1])[0] || ['אין נתונים', 0];
       const topArea = Object.entries(areas).sort((a,b) => b[1] - a[1])[0] || ['אין מוקד חריג', 0];
       const gapNeed = Object.entries(countBy(data.filter(r => r.hasResourceGap), 'needType')).sort((a,b) => b[1] - a[1])[0] || ['משאבים', 0];
@@ -1679,8 +1862,8 @@
 
       container.innerHTML = cards.map(card => `
         <article class="overview-insight-card" style="${card.border ? `border-right-color:${card.border};` : ''}">
-          <strong>${card.title}</strong>
-          <p>${card.text}</p>
+	          <strong>${escapeHtml(card.title)}</strong>
+	          <p>${escapeHtml(card.text)}</p>
         </article>
       `).join('');
     }
@@ -1688,6 +1871,7 @@
     function updateAll() {
       const data = getFilteredReports();
       renderOverview(data);
+      renderAttentionTable(data);
       renderNeedsTab();
       renderResourcesTab();
     }
@@ -1719,7 +1903,7 @@
     function renderInsights(data) {
       const stats = getStats(data);
       const needs = countBy(data, 'needType');
-      const areas = countBy(data.filter(r => r.urgency === 'גבוהה' && r.status !== 'נסגר'), 'area');
+      const areas = countBy(data.filter(r => r.urgency === 'גבוהה' && !isDoneStatus(r.status)), 'area');
       const topNeed = Object.entries(needs).sort((a,b) => b[1] - a[1])[0] || ['אין נתונים', 0];
       const topUrgentArea = Object.entries(areas).sort((a,b) => b[1] - a[1])[0] || ['אין אזור חריג', 0];
 
@@ -1803,12 +1987,12 @@
     function renderStatusDonut(data, targetDonutId = 'statusDonut', targetLegendId = 'statusLegend') {
       const counts = countBy(data, 'status');
       const total = data.length || 1;
-      const statuses = ["פתוח", "בטיפול", "ממתין לגורם חיצוני", "נסגר"];
+      const statuses = ["הוגש", "בטיפול", "ממתין לגורם חיצוני", "טופל"];
       const colorValues = {
-        "פתוח": "var(--primary-orange)",
+        "הוגש": "var(--primary-orange)",
         "בטיפול": "var(--blue)",
         "ממתין לגורם חיצוני": "var(--amber)",
-        "נסגר": "var(--green)"
+        "טופל": "var(--green)"
       };
       let acc = 0;
       const gradient = statuses.map(status => {
@@ -1829,7 +2013,7 @@
       if (legend) {
         legend.innerHTML = statuses.map(status => `
           <div class="legend-item">
-            <span class="legend-name"><span class="dot ${statusColors[status]}"></span>${status}</span>
+            <span class="legend-name"><span class="dot ${statusColors[status] || 'orange'}"></span>${escapeHtml(status)}</span>
             <strong>${counts[status] || 0}</strong>
           </div>
         `).join('');
@@ -1842,7 +2026,7 @@
       const max = Math.max(...sorted.map(([_, count]) => count), 1);
       container.innerHTML = sorted.map(([label, count]) => `
         <div class="bar-row">
-          <div class="bar-label">${label}</div>
+          <div class="bar-label">${escapeHtml(label)}</div>
           <div class="bar-track"><div class="bar-fill" style="width:${Math.round((count / max) * 100)}%"></div></div>
           <div class="bar-count">${count}</div>
         </div>
@@ -1850,22 +2034,38 @@
     }
 
     function renderAttentionTable(data) {
+      const tbody = document.getElementById('attentionRows');
+      if (!tbody) return;
+
       const rows = data
-        .filter(r => r.status !== 'נסגר')
-        .sort((a,b) => (b.urgency === 'גבוהה') - (a.urgency === 'גבוהה') || b.daysOpen - a.daysOpen)
+        .filter(r => (["גבוהה", "קריטית"].includes(r.urgency) && !isDoneStatus(r.status)) || (!isDoneStatus(r.status) && r.daysOpen > 5) || r.hasResourceGap)
+        .sort((a,b) => (b.urgency === 'קריטית') - (a.urgency === 'קריטית') || (b.urgency === 'גבוהה') - (a.urgency === 'גבוהה') || b.daysOpen - a.daysOpen)
         .slice(0, 8);
 
-      document.getElementById('attentionRows').innerHTML = rows.map(r => `
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="7">אין כרגע דיווחים חריגים לתשומת לב.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => {
+        const reasons = [];
+        if (r.urgency === 'קריטית' && !isDoneStatus(r.status)) reasons.push('קריטי');
+        if (r.urgency === 'גבוהה' && !isDoneStatus(r.status)) reasons.push('דחוף');
+        if (!isDoneStatus(r.status) && r.daysOpen > 5) reasons.push('פתוח מעל 5 ימים');
+        if (r.hasResourceGap) reasons.push('חוסר משאב');
+
+        return `
         <tr>
-          <td>${r.needType}</td>
-          <td>${r.area}</td>
-          <td><span class="pill ${r.urgency === 'גבוהה' ? 'red' : r.urgency === 'בינונית' ? 'orange' : 'green'}">${r.urgency}</span></td>
-          <td>${r.status}</td>
+          <td>${escapeHtml(r.needType)}</td>
+          <td>${escapeHtml(r.area)}</td>
+          <td><span class="pill ${['גבוהה', 'קריטית'].includes(r.urgency) ? 'red' : r.urgency === 'בינונית' ? 'orange' : 'green'}">${escapeHtml(r.urgency)}</span></td>
+          <td>${escapeHtml(r.status)}</td>
           <td>${r.daysOpen}</td>
-          <td>${r.assignedOrg || '<span class="pill red">חסר גורם</span>'}</td>
-          <td><button class="mini-action" onclick="showToast('פעולה לדמו בלבד')">שייך גורם</button></td>
+          <td>${r.assignedOrg ? escapeHtml(r.assignedOrg) : '<span class="pill red">חסר גורם</span>'}</td>
+          <td>${escapeHtml(reasons.join(', '))}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function renderNeedsTab() {
@@ -1877,7 +2077,7 @@
       const sorted = Object.entries(needs).sort((a,b) => b[1] - a[1]);
       document.getElementById('needsSummary').innerHTML = sorted.slice(0, 6).map(([need, count], index) => `
         <div class="history-card">
-          <strong>${index + 1}. ${need}</strong>
+          <strong>${index + 1}. ${escapeHtml(need)}</strong>
           <span>${count} דיווחים בתקופה הנבחרת. ${count >= 3 ? 'מומלץ לבדוק זמינות גורמים מטפלים.' : 'כרגע אין עומס חריג.'}</span>
         </div>
       `).join('') || '<p class="card-subtitle">אין נתונים לאזור שנבחר.</p>';
@@ -1897,8 +2097,8 @@
       document.getElementById('resourceRecommendations').innerHTML = recs.slice(0, 5).map(rec => `
         <div class="resource-item">
           <div>
-            <strong>${rec.title}</strong>
-            <span>${rec.text}</span>
+            <strong>${escapeHtml(rec.title)}</strong>
+            <span>${escapeHtml(rec.text)}</span>
           </div>
           <span class="pill orange">המלצה</span>
         </div>
@@ -1924,6 +2124,11 @@
     }
 
     async function generateAIReport() {
+      if (pagePermissions && pagePermissions.can_view_ai === false) {
+        showToast('אין לך הרשאה ליצור דוח AI');
+        return false;
+      }
+
       const prompt = document.getElementById('aiPrompt').value.trim() || 'צור תקציר מנהלים על מצב הדיווחים בתקופה הנבחרת';
       const filters = {
         range: document.getElementById('aiRange').value,
@@ -1936,79 +2141,56 @@
       loading.classList.add('active');
       output.classList.remove('active');
 
-      currentReport = await requestAIReport(prompt, filters);
-
-      loading.classList.remove('active');
-      renderGeneratedReport(currentReport);
-      output.classList.add('active');
-      output.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      try {
+        currentReport = await requestAIReport(prompt, filters);
+        loading.classList.remove('active');
+        renderGeneratedReport(currentReport);
+        output.classList.add('active');
+        output.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return true;
+      } catch (error) {
+        console.error('AI REPORT ERROR:', error);
+        loading.classList.remove('active');
+        output.innerHTML = '<div class="generated-report"><p class="card-subtitle">לא הצלחנו ליצור דוח AI כרגע. נסו שוב בעוד רגע.</p></div>';
+        output.classList.add('active');
+        showToast('שגיאה ביצירת דוח AI');
+        return false;
+      }
     }
 
     async function requestAIReport(prompt, filters) {
-      // TODO: Replace this mock with a real API call:
-      // return fetch('/api/ai-report', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ prompt, filters, reportsData }) }).then(r => r.json());
+      if (usingFallbackData) {
+        throw new Error('אין חיבור לנתונים חיים');
+      }
 
-      await new Promise(resolve => setTimeout(resolve, 1100));
+      const response = await fetch('./api/ai_report.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, filters })
+      });
+      const payload = await response.json();
 
-      const data = getFilteredReports(filters.range, filters.area);
-      const stats = getStats(data);
-      const needs = countBy(data, 'needType');
-      const statuses = countBy(data, 'status');
-      const gaps = countBy(data.filter(r => r.hasResourceGap), 'needType');
-      const areas = countBy(data, 'area');
-      const topNeed = Object.entries(needs).sort((a,b) => b[1] - a[1])[0] || ['אין נתונים', 0];
-      const topGap = Object.entries(gaps).sort((a,b) => b[1] - a[1])[0] || ['אין חוסר מרכזי', 0];
-      const topArea = Object.entries(areas).sort((a,b) => b[1] - a[1])[0] || ['כללי', 0];
-
-      const typeTitles = {
-        executive: 'סיכום הנהלה',
-        resources: 'דוח חוסרי משאבים',
-        open: 'דוח סטטוסים פתוחים',
-        needs: 'דוח צרכים נפוצים',
-        urgent: 'דוח חריגים ודחופים',
-        custom: 'דוח מותאם אישית'
-      };
-
-      const rangeTitles = { week: 'השבוע', month: 'החודש', quarter: '3 חודשים', year: 'השנה' };
-      const title = `${typeTitles[filters.type]} — ${rangeTitles[filters.range]}${filters.area !== 'all' ? ' | ' + filters.area : ''}`;
-
-      const summary = `המערכת ניתחה ${stats.total} דיווחים ${filters.area !== 'all' ? 'באזור ' + filters.area : 'בכל האזורים'}.
-      הצורך הבולט ביותר הוא ${topNeed[0]}, כאשר קיימים ${stats.open} מקרים פתוחים ו־${stats.gaps} חוסרי משאבים פעילים.
-      המסקנה הניהולית המרכזית היא שיש לתעדף מקרים דחופים ולטפל בפערי גורמים מטפלים לפני שהם מתארכים.`;
-
-      const insights = [
-        `הצורך הנפוץ ביותר הוא ${topNeed[0]} עם ${topNeed[1]} דיווחים בתקופה.`,
-        stats.urgent ? `קיימים ${stats.urgent} דיווחים דחופים שעדיין אינם סגורים.` : 'לא זוהו דיווחים דחופים פתוחים בתקופה.',
-        topGap[1] ? `הפער המרכזי במשאבים הוא בתחום ${topGap[0]} עם ${topGap[1]} מקרים ללא גורם.` : 'לא זוהה חוסר משאבים משמעותי בתקופה.',
-        `אזור הפעילות הבולט ביותר הוא ${topArea[0]} עם ${topArea[1]} דיווחים.`,
-        `זמן הטיפול הממוצע במקרים פתוחים הוא ${stats.avgDays} ימים.`
-      ];
-
-      const recommendations = [
-        stats.urgent ? 'לתעדף טיפול בדיווחים דחופים שפתוחים מעל 5 ימים.' : 'להמשיך לעקוב אחר סטטוס הדיווחים הדחופים ולשמר זמני טיפול קצרים.',
-        topGap[1] ? `לאתר שותף או מתנדבים נוספים בתחום ${topGap[0]}.` : 'לשמר את מנגנון שיוך הגורמים המטפלים הקיים.',
-        `לבחון האם באזור ${topArea[0]} נדרש תגבור מתנדבים או גורמי טיפול.`,
-        `להגדיר מעקב שבועי אחר קטגוריית ${topNeed[0]} כדי לזהות האם מדובר במגמה מתמשכת.`,
-        'להפיק דוח חודשי קבוע להנהלת העמותה עם מדדי סגירה, דחיפות וחוסרי משאבים.'
-      ];
-
-      let chartType = 'bar';
-      let chartData = needs;
-      if (filters.type === 'resources') { chartData = gaps; chartType = 'bar'; }
-      if (filters.type === 'open') { chartData = statuses; chartType = 'donut'; }
-      if (filters.type === 'urgent') { chartData = countBy(data.filter(r => r.urgency === 'גבוהה'), 'area'); chartType = 'bar'; }
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.message || 'AI report request failed');
+      }
 
       return {
         prompt,
-        title,
-        period: rangeTitles[filters.range],
-        summary,
-        stats,
-        insights,
-        recommendations,
-        chartType,
-        chartData,
-        sourceData: data
+        title: payload.title,
+        summary: payload.summary,
+        stats: {
+          total: payload.stats?.total ?? payload.sourceCount ?? 0,
+          open: payload.stats?.open ?? 0,
+          urgent: payload.stats?.urgent ?? 0,
+          gaps: payload.stats?.gaps ?? 0,
+          avgDays: payload.stats?.avgDays ?? 0
+        },
+        insights: Array.isArray(payload.insights) ? payload.insights : [],
+        recommendations: Array.isArray(payload.recommendations) ? payload.recommendations : [],
+        chartType: payload.chartType || 'bar',
+        chartData: payload.chartData || {},
+        sourceCount: payload.sourceCount || 0,
+        sourceData: getFilteredReports(filters.range, filters.area)
       };
     }
 
@@ -2016,12 +2198,12 @@
       const output = document.getElementById('reportOutput');
       output.innerHTML = `
         <article class="generated-report">
-          <header class="report-head">
-            <div>
-              <h2>${report.title}</h2>
-              <p>${report.summary}</p>
-            </div>
-            <span class="pill orange"><i class="fa-solid fa-robot"></i> נוצר על ידי AI</span>
+	          <header class="report-head">
+	            <div>
+	              <h2>${escapeHtml(report.title)}</h2>
+	              <p>${escapeHtml(report.summary)}</p>
+	            </div>
+	            <span class="pill orange"><i class="fa-solid fa-robot"></i> נוצר על ידי AI</span>
           </header>
 
           <div class="report-body">
@@ -2034,17 +2216,17 @@
 
             <section class="report-sections">
               <div>
-                <h3 class="card-title">תובנות מרכזיות</h3>
-                <ul class="clean-list" style="margin-top:12px;">
-                  ${report.insights.map(item => `<li><i class="fa-solid fa-lightbulb"></i><span>${item}</span></li>`).join('')}
-                </ul>
-              </div>
+	                <h3 class="card-title">תובנות מרכזיות</h3>
+	                <ul class="clean-list" style="margin-top:12px;">
+	                  ${report.insights.map(item => `<li><i class="fa-solid fa-lightbulb"></i><span>${escapeHtml(item)}</span></li>`).join('')}
+	                </ul>
+	              </div>
 
               <div>
-                <h3 class="card-title">המלצות פעולה</h3>
-                <ul class="clean-list" style="margin-top:12px;">
-                  ${report.recommendations.map(item => `<li><i class="fa-solid fa-circle-check"></i><span>${item}</span></li>`).join('')}
-                </ul>
+	                <h3 class="card-title">המלצות פעולה</h3>
+	                <ul class="clean-list" style="margin-top:12px;">
+	                  ${report.recommendations.map(item => `<li><i class="fa-solid fa-circle-check"></i><span>${escapeHtml(item)}</span></li>`).join('')}
+	                </ul>
               </div>
             </section>
 
@@ -2074,13 +2256,14 @@
     function renderReportChart(report) {
       const container = document.getElementById('generatedChart');
       if (report.chartType === 'donut') {
+        const sourceData = report.sourceData || [];
         container.innerHTML = `
           <div class="donut-wrap">
-            <div id="generatedDonut" class="donut" data-center="${report.sourceData.length}\\Aדיווחים"></div>
+            <div id="generatedDonut" class="donut" data-center="${sourceData.length}\\Aדיווחים"></div>
             <div id="generatedLegend" class="legend"></div>
           </div>
         `;
-        renderStatusDonut(report.sourceData, 'generatedDonut', 'generatedLegend');
+        renderStatusDonut(sourceData, 'generatedDonut', 'generatedLegend');
         return;
       }
 
@@ -2089,11 +2272,11 @@
       const max = Math.max(...sorted.map(([_, count]) => count), 1);
       container.innerHTML = `
         <div class="bar-list">
-          ${sorted.map(([label, count]) => `
-            <div class="bar-row">
-              <div class="bar-label">${label}</div>
-              <div class="bar-track"><div class="bar-fill" style="width:${Math.round((count / max) * 100)}%"></div></div>
-              <div class="bar-count">${count}</div>
+	          ${sorted.map(([label, count]) => `
+	            <div class="bar-row">
+	              <div class="bar-label">${escapeHtml(label)}</div>
+	              <div class="bar-track"><div class="bar-fill" style="width:${Math.round((count / max) * 100)}%"></div></div>
+	              <div class="bar-count">${count}</div>
             </div>
           `).join('') || '<p class="card-subtitle">אין מספיק נתונים להצגת גרף.</p>'}
         </div>
@@ -2164,7 +2347,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      updateAll();
+      loadReportsData();
       renderHistory();
       syncTabFromHash();
     });

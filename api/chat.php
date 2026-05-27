@@ -3,9 +3,11 @@ session_start();
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/email.php';
+require_once __DIR__ . '/report_helpers.php';
+require_once __DIR__ . '/auth.php';
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
 ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/php-error.log');
 error_reporting(E_ALL);
@@ -399,7 +401,7 @@ function callGemini($apiKey, $parts, $systemInstruction = null, $timeout = 60) {
     friendlyGeminiFailureResponse("all_models_failed");
 }
 
-function parseJsonFromAi($text, $errorTitle = "Failed to parse AI JSON") {
+function parseJsonFromAi($text, $errorTitle = "Failed to parse AI JSON", $fallback = []) {
     $clean = trim($text);
     $clean = preg_replace('/^```json\s*/u', '', $clean);
     $clean = preg_replace('/^```\s*/u', '', $clean);
@@ -409,10 +411,8 @@ function parseJsonFromAi($text, $errorTitle = "Failed to parse AI JSON") {
     $parsed = json_decode($clean, true);
 
     if (!is_array($parsed)) {
-        jsonResponse([
-            "error" => $errorTitle,
-            "raw" => $text
-        ], 500);
+        error_log($errorTitle . ": " . substr((string)$text, 0, 500));
+        return is_array($fallback) ? $fallback : [];
     }
 
     return $parsed;
@@ -445,6 +445,11 @@ function defaultConversationState($conversationId = null) {
         "proposed_description" => null,
         "category" => null,
         "urgency" => null,
+        "urgency_recommendation" => null,
+        "urgency_reason" => null,
+        "urgency_confirmed" => false,
+        "is_critical" => false,
+        "emergency_warning" => null,
         "additional_details" => null,
         "image_text_analysis" => null,
         "pending_image_analysis" => null,
@@ -526,6 +531,88 @@ function isNegativeOnly($text) {
     return preg_match('/^(לא|לא נכון|לא מדויק|צריך לתקן|תיקון)$/u', $text) === 1;
 }
 
+function normalizeCategory($category, $context = "") {
+    $category = trim((string)$category);
+
+    if ($category === "" || preg_match('/^(לא ידוע|לא ברור|unclear|null)$/iu', $category)) {
+        $category = mpInferNeedType($context);
+    }
+
+    return $category !== "" ? $category : "אחר";
+}
+
+function isTrivialAnswer($text) {
+    $text = trim((string)$text);
+
+    return $text === "" || preg_match('/^(כן|לא|בסדר|אוקיי|ok|טוב|נכון|אולי|לא יודע|לא יודעת|אין לי מושג|תודה)$/iu', $text) === 1;
+}
+
+function isMeaningfulDescription($text) {
+    $text = trim((string)$text);
+
+    if (isTrivialAnswer($text)) {
+        return false;
+    }
+
+    if (preg_match('/^(יש בעיה|בעיה|משהו לא בסדר|לא טוב)$/u', $text)) {
+        return false;
+    }
+
+    $lettersOnly = preg_replace('/[^\p{L}\p{N}]+/u', '', $text);
+
+    preg_match_all('/./u', $lettersOnly, $characters);
+
+    if (count($characters[0]) < 8) {
+        return false;
+    }
+
+    return preg_match('/(קשיש|קשישה|בודד|בודדה|בדידות|כואב|חולה|תרופה|תרופות|מזון|אוכל|גז|ריח|נפילה|סכנה|בית|נזילה|תיקון|ליווי|רופא|רשויות|צריך|צריכה|חסר|חסרה|אין|קושי|בעיה)/u', $text) === 1;
+}
+
+function hasEmergencyRiskHeuristic($text) {
+    return preg_match('/(ריח גז|גז|שריפה|אש|עשן|נפילה|נפל|נפלה|התעלף|התעלפה|לא נושם|לא נושמת|סכנת חיים|חירום|מיידי|מידי|כבאות|מד״א|מדא|אמבולנס|משטרה|הצפה|חשמל חשוף|סכנה מיידית|סכנה מידית)/u', (string)$text) === 1;
+}
+
+function isOtherElderlyHeuristic($text) {
+    return preg_match('/(קשיש אחר|קשישה אחרת|מישהו אחר|מישהי אחרת|לא משויך|לא משויכת|לא הקשיש שלי|לא הקשישה שלי|אינו משויך|אינה משויכת)/u', (string)$text) === 1;
+}
+
+function isUnrelatedToElderlyCareHeuristic($text) {
+    $text = trim((string)$text);
+
+    if ($text === "") {
+        return false;
+    }
+
+    if (preg_match('/(מזג אוויר|בדיחה|מתכון|שיעורי בית|תכנות|קוד|סיסמה|התחברות|קניות לעצמי|טיסה|מלון|סרט|מוזיקה)/u', $text)) {
+        return true;
+    }
+
+    return false;
+}
+
+function fallbackReportAnalysis($message, $context = "") {
+    $combined = trim((string)$context . "\n" . (string)$message);
+    $isOtherElder = isOtherElderlyHeuristic($combined);
+    $isUnrelated = isUnrelatedToElderlyCareHeuristic($message);
+    $hasEmergency = hasEmergencyRiskHeuristic($combined);
+    $isClear = !$isUnrelated && !$isOtherElder && isMeaningfulDescription($combined);
+
+    return [
+        "is_other_elder_request" => $isOtherElder,
+        "has_emergency_risk" => $hasEmergency,
+        "is_related_to_elderly_care" => !$isUnrelated,
+        "is_clear_description" => $isClear,
+        "clarification_question" => $isUnrelated
+            ? "כדי לפתוח דיווח, מה הצורך או הבעיה שזיהית אצל הקשיש?"
+            : "תוכל לפרט בקצרה מה בדיוק קרה ומה העזרה שנדרשת?",
+        "proposed_description" => $isClear ? trim($combined) : "",
+        "category" => normalizeCategory("", $combined),
+        "additional_details" => "",
+        "should_confirm_rewrite" => $isClear
+    ];
+}
+
 function addAdditionalDetail(&$state, $detail) {
     $detail = trim($detail);
 
@@ -563,7 +650,11 @@ function normalizeUrgency($apiKey, $message) {
         return null;
     }
 
-    if (preg_match('/(דחוף מאוד|חייבים|עכשיו|מיידי|מידי|סכנה|קריטי|חמור|בהול|היום)/u', $message)) {
+    if (preg_match('/(קריטי|קריטית|סכנת חיים|ריח גז|גז|שריפה|אש|עשן|נפילה|נפל|נפלה|לא נושם|לא נושמת|חשמל חשוף|הצפה|חירום|מיידי|מידי)/u', $message)) {
+        return "קריטית";
+    }
+
+    if (preg_match('/(דחוף מאוד|חייבים|עכשיו|סכנה|חמור|בהול|היום|גבוהה|גבוה)/u', $message)) {
         return "גבוהה";
     }
 
@@ -586,22 +677,139 @@ function normalizeUrgency($apiKey, $message) {
 - נמוכה
 - בינונית
 - גבוהה
+- קריטית
 - unclear
 
 פורמט:
-{\"urgency\":\"נמוכה|בינונית|גבוהה|unclear\"}
+{\"urgency\":\"נמוכה|בינונית|גבוהה|קריטית|unclear\"}
 
 כללים:
 - \"לא דחוף\", \"אפשר בהמשך\" = נמוכה
 - \"כדאי לטפל בקרוב\" = בינונית
 - \"דחוף מאוד\", \"חייבים עכשיו\" = גבוהה
+- ריח גז, נפילה, שריפה, סכנת חיים, מצוקה רפואית קשה או מפגע בטיחות מיידי = קריטית
 - אם אי אפשר להבין, החזר unclear";
 
     $reply = callGemini($apiKey, [["text" => $message]], $instruction, 25);
     $parsed = parseJsonFromAi($reply, "Failed to parse urgency JSON");
     $urgency = $parsed["urgency"] ?? "unclear";
 
-    return in_array($urgency, ["נמוכה", "בינונית", "גבוהה"], true) ? $urgency : null;
+    return in_array($urgency, ["נמוכה", "בינונית", "גבוהה", "קריטית"], true) ? $urgency : null;
+}
+
+function buildUrgencyRecommendation($state) {
+    $description = trim((string)($state["description"] ?? ""));
+    $details = trim((string)($state["additional_details"] ?? ""));
+    $imageText = trim((string)($state["image_text_analysis"] ?? ""));
+    $category = normalizeCategory($state["category"] ?? "", $description . "\n" . $details . "\n" . $imageText);
+    $text = trim($description . "\n" . $details . "\n" . $imageText . "\n" . $category);
+
+    if ($text === "" || !isMeaningfulDescription($description)) {
+        return [
+            "category" => $category,
+            "urgency_recommendation" => null,
+            "urgency_reason" => "חסר תיאור ברור מספיק כדי להמליץ על דחיפות.",
+            "is_critical" => false,
+            "emergency_warning" => "",
+            "needs_user_confirmation" => true,
+            "clarification_question" => "כדי להמליץ על דחיפות, תוכל לפרט במשפט אחד מה קרה ומה רמת הסיכון?"
+        ];
+    }
+
+    $urgency = "בינונית";
+    $reason = "התיאור מצביע על צורך שדורש מעקב וטיפול מסודר.";
+    $isCritical = false;
+
+    if (preg_match('/(ריח גז|גז|שריפה|אש|עשן|נפילה|נפל|נפלה|התעלף|התעלפה|לא נושם|לא נושמת|סכנת חיים|חירום|מיידי|מידי|חשמל חשוף|הצפה|סכנה מיידית|סכנה מידית|דימום|כאב חזה)/u', $text)) {
+        $urgency = "קריטית";
+        $reason = "זוהה תיאור של סכנה מיידית או אירוע בטיחות/בריאות שעלול לדרוש פעולה מיידית.";
+        $isCritical = true;
+    } elseif (preg_match('/(הידרדרות|הדרדרות|בלבול|מבולבל|מבולבלת|תרופה|תרופות|לא לקח|לא לקחה|חסר תרופות|כאב חזק|קוצר נשימה|רופא דחוף|חום גבוה|נפיחות|פצע|סחרחורת)/u', $text)) {
+        $urgency = "גבוהה";
+        $reason = "זוהו סימנים רפואיים או תפקודיים שחשוב לטפל בהם בעדיפות גבוהה.";
+    } elseif (preg_match('/(קושי בהליכה|ניידות|מקלחת|מיטה|ציוד|הליכון|כיסא גלגלים|חוזר|חוזרת|כמה פעמים|אין אוכל|מזון|ארוחה|רעב|רעבה|תחזוקה|נזילה)/u', $text)) {
+        $urgency = "בינונית";
+        $reason = "מדובר בקושי תפקודי או צורך חוזר שכדאי לקדם בזמן סביר.";
+    } elseif (preg_match('/(בדידות|בודד|בודדה|שיחה|ביקור|חברה|תמיכה רגשית|לבד|מעקב כללי|שמח לשיחה)/u', $text)) {
+        $urgency = preg_match('/(מאוד|קשה|בוכה|מצוקה|כמה ימים|הרבה זמן)/u', $text) ? "בינונית" : "נמוכה";
+        $reason = $urgency === "בינונית"
+            ? "התיאור רגשי וחברתי, אך מופיעים סימני מצוקה ולכן מומלץ לא להשאיר ללא מעקב."
+            : "מדובר בצורך חברתי או מעקב כללי ללא סימן לסכנה מיידית.";
+    }
+
+    return [
+        "category" => $category,
+        "urgency_recommendation" => $urgency,
+        "urgency_reason" => $reason,
+        "is_critical" => $isCritical,
+        "emergency_warning" => $isCritical ? emergencyNotice() : "",
+        "needs_user_confirmation" => true,
+        "clarification_question" => ""
+    ];
+}
+
+function urgencyConfirmationActions($recommendedUrgency = "") {
+    $actions = [];
+
+    if ($recommendedUrgency !== "") {
+        $actions[] = ["label" => "מאשר/ת: " . $recommendedUrgency, "action" => "confirm_urgency", "variant" => "primary"];
+    }
+
+    return array_merge($actions, [
+        ["label" => "נמוכה", "action" => "set_urgency_low", "variant" => "secondary"],
+        ["label" => "בינונית", "action" => "set_urgency_medium", "variant" => "secondary"],
+        ["label" => "גבוהה", "action" => "set_urgency_high", "variant" => "secondary"],
+        ["label" => "קריטית", "action" => "set_urgency_critical", "variant" => "secondary"]
+    ]);
+}
+
+function respondWithUrgencyRecommendation($state, $prefix = "") {
+    $recommendation = buildUrgencyRecommendation($state);
+    $recommendedUrgency = $recommendation["urgency_recommendation"] ?? null;
+
+    if (!$recommendedUrgency) {
+        $state["stage"] = "awaiting_urgency";
+        respond($prefix . ($recommendation["clarification_question"] ?: "מה רמת הדחיפות של המקרה: נמוכה, בינונית, גבוהה או קריטית?"), $state);
+    }
+
+    $state["category"] = $recommendation["category"] ?: ($state["category"] ?? "אחר");
+    $state["urgency_recommendation"] = $recommendedUrgency;
+    $state["urgency_reason"] = $recommendation["urgency_reason"] ?? "";
+    $state["is_critical"] = !empty($recommendation["is_critical"]);
+    $state["emergency_warning"] = $recommendation["emergency_warning"] ?? "";
+    $state["urgency_confirmed"] = false;
+    $state["stage"] = "awaiting_urgency_confirmation";
+
+    $message = $prefix;
+
+    if (!empty($state["is_critical"]) && !empty($state["emergency_warning"])) {
+        $message .= $state["emergency_warning"] . "\n\n";
+    }
+
+    $message .= "לפי הדיווח, רמת הדחיפות המומלצת היא " . $recommendedUrgency . ".";
+
+    if (!empty($state["urgency_reason"])) {
+        $message .= "\nסיבה: " . $state["urgency_reason"];
+    }
+
+    $message .= "\n\nהאם זה מתאים? אפשר לאשר או לבחור רמת דחיפות אחרת לפני יצירת הדיווח.";
+
+    respond($message, $state, [
+        "actions" => urgencyConfirmationActions($recommendedUrgency),
+        "urgency_recommendation" => $recommendation
+    ]);
+}
+
+function setConfirmedUrgencyAndSummarize($state, $urgency) {
+    $state["urgency"] = mpNormalizeUrgencyValue($urgency, $state["description"] ?? "");
+    $state["urgency_confirmed"] = true;
+
+    if ($state["urgency"] === "קריטית") {
+        $state["is_critical"] = true;
+        $state["emergency_warning"] = $state["emergency_warning"] ?: emergencyNotice();
+    }
+
+    respondWithSummary($state);
 }
 
 function analyzeReportText($apiKey, $message, $context = "") {
@@ -611,23 +819,25 @@ function analyzeReportText($apiKey, $message, $context = "") {
 
 המטרה: לנתח הודעת מתנדב על צורך או בעיה של קשיש, ולענות רק ב-JSON תקין.
 
-פורמט:
-{
-  \"is_other_elder_request\": true/false,
-  \"has_emergency_risk\": true/false,
-  \"is_clear_description\": true/false,
-  \"clarification_question\": \"...\",
-  \"proposed_description\": \"...\",
-  \"category\": \"...\",
-  \"additional_details\": \"...\",
+	פורמט:
+	{
+	  \"is_other_elder_request\": true/false,
+	  \"has_emergency_risk\": true/false,
+	  \"is_related_to_elderly_care\": true/false,
+	  \"is_clear_description\": true/false,
+	  \"clarification_question\": \"...\",
+	  \"proposed_description\": \"...\",
+	  \"category\": \"...\",
+	  \"additional_details\": \"...\",
   \"should_confirm_rewrite\": true/false
 }
 
-כללים:
-- אם המתנדב מבקש לדווח על קשיש אחר שאינו משויך אליו, is_other_elder_request=true
-- תיאור כללי כמו \"הוא לא מרגיש טוב\" או \"יש בעיה בבית\" אינו מספיק ברור
-- אם התיאור לא ברור, כתוב clarification_question קצרה אחת בלבד
-- proposed_description יהיה ניסוח מקצועי, קצר וברור של הבעיה
+	כללים:
+	- אם המתנדב מבקש לדווח על קשיש אחר שאינו משויך אליו, is_other_elder_request=true
+	- אם ההודעה אינה קשורה לצרכים, בטיחות, בריאות, רווחה או טיפול בקשישים, is_related_to_elderly_care=false ושאל clarification_question קצרה אחת
+	- תיאור כללי כמו \"הוא לא מרגיש טוב\" או \"יש בעיה בבית\" אינו מספיק ברור
+	- אם התיאור לא ברור, כתוב clarification_question קצרה אחת בלבד
+	- proposed_description יהיה ניסוח מקצועי, קצר וברור של הבעיה
 - category היא קטגוריה דינמית קצרה בעברית, למשל מחסור במזון, בדידות, בעיה רפואית, בעיית תחזוקה בבית, בטיחות, אחר
 - אם יש סכנת חיים או מצב חירום מיידי, has_emergency_risk=true
 - אל תמליץ על עמותה ואל תבצע ניתוב";
@@ -641,15 +851,30 @@ function analyzeReportText($apiKey, $message, $context = "") {
     $parts[] = ["text" => "הודעת המתנדב:\n" . $message];
 
     $reply = callGemini($apiKey, $parts, $instruction, 35);
-    $parsed = parseJsonFromAi($reply, "Failed to parse report analysis JSON");
+    $fallback = fallbackReportAnalysis($message, $context);
+    $parsed = parseJsonFromAi($reply, "Failed to parse report analysis JSON", $fallback);
+    $combined = trim((string)$context . "\n" . (string)$message);
+    $proposedDescription = trim($parsed["proposed_description"] ?? "");
+
+    if ($proposedDescription !== "" && !isMeaningfulDescription($proposedDescription)) {
+        $proposedDescription = "";
+    }
+
+    if (array_key_exists("is_related_to_elderly_care", $parsed)) {
+        $isRelated = !empty($parsed["is_related_to_elderly_care"]) && !isUnrelatedToElderlyCareHeuristic($message);
+    } else {
+        $isRelated = !empty($fallback["is_related_to_elderly_care"]) && !isUnrelatedToElderlyCareHeuristic($message);
+    }
+    $isClear = !empty($parsed["is_clear_description"]) && ($proposedDescription !== "" || isMeaningfulDescription($combined));
 
     return [
-        "is_other_elder_request" => !empty($parsed["is_other_elder_request"]),
-        "has_emergency_risk" => !empty($parsed["has_emergency_risk"]),
-        "is_clear_description" => !empty($parsed["is_clear_description"]),
+        "is_other_elder_request" => !empty($parsed["is_other_elder_request"]) || isOtherElderlyHeuristic($combined),
+        "has_emergency_risk" => !empty($parsed["has_emergency_risk"]) || hasEmergencyRiskHeuristic($combined),
+        "is_related_to_elderly_care" => $isRelated,
+        "is_clear_description" => $isClear,
         "clarification_question" => trim($parsed["clarification_question"] ?? ""),
-        "proposed_description" => trim($parsed["proposed_description"] ?? ""),
-        "category" => trim($parsed["category"] ?? "אחר"),
+        "proposed_description" => $proposedDescription !== "" ? $proposedDescription : trim($combined),
+        "category" => normalizeCategory($parsed["category"] ?? "", $combined),
         "additional_details" => trim($parsed["additional_details"] ?? ""),
         "should_confirm_rewrite" => !empty($parsed["should_confirm_rewrite"])
     ];
@@ -713,7 +938,11 @@ function resolveImageConfirmation($apiKey, $imageAssessment, $volunteerReply) {
         30
     );
 
-    return parseJsonFromAi($reply, "Failed to parse image confirmation JSON");
+    return parseJsonFromAi($reply, "Failed to parse image confirmation JSON", [
+        "status" => isAffirmative($volunteerReply) ? "confirmed_or_corrected" : "unclear",
+        "final_image_text_analysis" => isAffirmative($volunteerReply) ? $imageAssessment : "",
+        "followup_question" => "כדי לדייק, האם הניתוח של התמונה נכון או שיש משהו שצריך לתקן?"
+    ]);
 }
 
 function buildSummaryMessage($state) {
@@ -721,7 +950,11 @@ function buildSummaryMessage($state) {
     $summary .= "תיאור המקרה: " . ($state["description"] ?: "לא נמסר") . "\n";
     $summary .= "קטגוריה: " . ($state["category"] ?: "אחר") . "\n";
     $summary .= "רמת דחיפות: " . ($state["urgency"] ?: "לא נמסרה") . "\n";
-    $summary .= "פירוט נוסף: " . (!empty($state["additional_details"]) ? $state["additional_details"] : "אין") . "\n\n";
+    $summary .= "פירוט נוסף: " . (!empty($state["additional_details"]) ? $state["additional_details"] : "אין") . "\n";
+    $summary .= "ניתוח תמונה אם קיים: " . (!empty($state["image_text_analysis"]) ? $state["image_text_analysis"] : "אין") . "\n\n";
+    if (!empty($state["is_critical"])) {
+        $summary .= emergencyNotice() . "\n\n";
+    }
     $summary .= "אם הסיכום מדויק, אפשר לאשר וליצור דיווח.";
 
     return $summary;
@@ -746,6 +979,10 @@ function respondWithSummary($state) {
 }
 
 function getCurrentVolunteerId() {
+    if (isset($GLOBALS["currentUser"]) && is_array($GLOBALS["currentUser"]) && !empty($GLOBALS["currentUser"]["volunteer_id"])) {
+        return (int)$GLOBALS["currentUser"]["volunteer_id"];
+    }
+
     if (!empty($_SESSION["volunteer_id"])) {
         return (int)$_SESSION["volunteer_id"];
     }
@@ -754,23 +991,29 @@ function getCurrentVolunteerId() {
         return (int)$_SESSION["user"]["volunteer_id"];
     }
 
-    return 1;
+    return 0;
 }
 
-function getAssignedElderlyForVolunteer($pdo, $volunteerId) {
-    if (!empty($_SESSION["elderly_id"])) {
-        $stmt = $pdo->prepare("
-            SELECT e.*
-            FROM elderly e
-            JOIN volunteer_elderly_assignments vea ON vea.elderly_id = e.id
-            WHERE e.id = :elderly_id
-              AND vea.volunteer_id = :volunteer_id
-            LIMIT 1
-        ");
+function getAssignedElderlyForVolunteer($pdo, $volunteerId, $currentUser = null) {
+    if (!mpDbTableExists($pdo, "elderly")) {
+        error_log("REPORT CREATE: elderly table is missing");
+        return null;
+    }
 
+    $currentUser = $currentUser ?: ($GLOBALS["currentUser"] ?? null);
+    $hasAssignments = mpDbTableExists($pdo, "volunteer_elderly_assignments");
+
+    if (!empty($_SESSION["elderly_id"])) {
+        $sessionElderlyId = (int)$_SESSION["elderly_id"];
+
+        if (!canAccessElderly($pdo, $sessionElderlyId, $currentUser)) {
+            error_log("REPORT CREATE: session elderly_id is not allowed for current user");
+            return null;
+        }
+
+        $stmt = $pdo->prepare("SELECT * FROM elderly WHERE id = :elderly_id LIMIT 1");
         $stmt->execute([
-            ':elderly_id' => (int)$_SESSION["elderly_id"],
-            ':volunteer_id' => $volunteerId
+            ':elderly_id' => $sessionElderlyId
         ]);
 
         $elderly = $stmt->fetch();
@@ -780,20 +1023,61 @@ function getAssignedElderlyForVolunteer($pdo, $volunteerId) {
         }
     }
 
-    $stmt = $pdo->prepare("
-        SELECT e.*
-        FROM elderly e
-        JOIN volunteer_elderly_assignments vea ON vea.elderly_id = e.id
-        WHERE vea.volunteer_id = :volunteer_id
-        ORDER BY e.id ASC
-        LIMIT 1
-    ");
+    if ($hasAssignments) {
+        $stmt = $pdo->prepare("
+            SELECT e.*
+            FROM elderly e
+            JOIN volunteer_elderly_assignments vea ON vea.elderly_id = e.id
+            WHERE vea.volunteer_id = :volunteer_id
+              AND COALESCE(vea.status, 'active') IN ('active', 'פעיל', 'פעילה', 'בתוקף')
+            ORDER BY e.id ASC
+            LIMIT 1
+        ");
 
-    $stmt->execute([
-        ':volunteer_id' => $volunteerId
-    ]);
+        $stmt->execute([
+            ':volunteer_id' => $volunteerId
+        ]);
 
-    return $stmt->fetch();
+        return $stmt->fetch();
+    }
+
+    $elderlyColumns = mpDbTableColumns($pdo, "elderly");
+    $assignmentColumns = array_values(array_filter([
+        mpColumnExists($elderlyColumns, "volunteer_id") ? "volunteer_id" : null,
+        mpColumnExists($elderlyColumns, "assigned_volunteer_id") ? "assigned_volunteer_id" : null,
+        mpColumnExists($elderlyColumns, "primary_volunteer_id") ? "primary_volunteer_id" : null
+    ]));
+
+    if ($assignmentColumns) {
+        $where = implode(" OR ", array_map(function ($column) {
+            return "e." . mpQuoteIdentifier($column) . " = :volunteer_id";
+        }, $assignmentColumns));
+
+        $stmt = $pdo->prepare("
+            SELECT e.*
+            FROM elderly e
+            WHERE " . $where . "
+            ORDER BY e.id ASC
+            LIMIT 1
+        ");
+
+        $stmt->execute([
+            ':volunteer_id' => $volunteerId
+        ]);
+
+        return $stmt->fetch();
+    }
+
+    if (!empty($currentUser["is_demo"])) {
+        error_log("REPORT CREATE: no assignment metadata found; using first elderly only for demo/backwards compatibility");
+        $stmt = $pdo->prepare("SELECT * FROM elderly ORDER BY id ASC LIMIT 1");
+        $stmt->execute();
+
+        return $stmt->fetch();
+    }
+
+    error_log("REPORT CREATE: no assignment metadata found; refusing to create report without an assigned elderly record");
+    return null;
 }
 
 function getEntityById($pdo, $tableName, $id) {
@@ -849,48 +1133,128 @@ function getVolunteerNameForEmail($pdo, $volunteerId) {
 }
 
 function saveReport($pdo, $volunteerId, $elderlyId, $content, $urgency) {
-    $stmt = $pdo->prepare("
-        INSERT INTO reports
-        (volunteer_id, elderly_id, content, urgency, status, classification_source, created_at)
-        VALUES
-        (:volunteer_id, :elderly_id, :content, :urgency, :status, :classification_source, NOW())
-    ");
+    $columns = mpDbTableColumns($pdo, "reports");
 
-    $stmt->execute([
-        ':volunteer_id' => $volunteerId,
-        ':elderly_id' => $elderlyId,
-        ':content' => $content,
-        ':urgency' => $urgency,
-        ':status' => 'הוגש',
-        ':classification_source' => 'AI'
+    foreach (["volunteer_id", "elderly_id", "content"] as $requiredColumn) {
+        if (!mpColumnExists($columns, $requiredColumn)) {
+            throw new RuntimeException("Missing required reports column: " . $requiredColumn);
+        }
+    }
+
+    $insertColumns = [];
+    $placeholders = [];
+    $params = [];
+
+    $setColumn = function ($column, $placeholder, $value) use (&$insertColumns, &$placeholders, &$params, $columns) {
+        if (!mpColumnExists($columns, $column)) {
+            return;
+        }
+
+        $insertColumns[] = mpQuoteIdentifier($column);
+        $placeholders[] = $placeholder;
+        $params[$placeholder] = $value;
+    };
+
+    $setColumn("volunteer_id", ":volunteer_id", $volunteerId);
+    $setColumn("elderly_id", ":elderly_id", $elderlyId);
+    $setColumn("content", ":content", $content);
+    $setColumn("urgency", ":urgency", $urgency);
+    $setColumn("status", ":status", "הוגש");
+    $setColumn("classification_source", ":classification_source", "AI");
+
+    if (isset($GLOBALS["currentUser"]) && is_array($GLOBALS["currentUser"]) && !empty($GLOBALS["currentUser"]["organization_id"])) {
+        $setColumn("organization_id", ":organization_id", (int)$GLOBALS["currentUser"]["organization_id"]);
+    }
+
+    if (mpColumnExists($columns, "created_at")) {
+        $insertColumns[] = mpQuoteIdentifier("created_at");
+        $placeholders[] = "NOW()";
+    }
+
+    $sql = "INSERT INTO reports (" . implode(", ", $insertColumns) . ") VALUES (" . implode(", ", $placeholders) . ")";
+    $stmt = $pdo->prepare($sql);
+
+    try {
+        $stmt->execute($params);
+    } catch (Throwable $e) {
+        $errorInfo = $stmt->errorInfo();
+        error_log("REPORT INSERT DB ERROR: " . $e->getMessage() . " | PDO: " . json_encode($errorInfo, JSON_UNESCAPED_UNICODE));
+        throw $e;
+    }
+
+    $reportId = $pdo->lastInsertId();
+
+    if (!$reportId) {
+        throw new RuntimeException("Report insert succeeded but no report id was returned");
+    }
+
+    return $reportId;
+}
+
+function logReportDebug($label, $data) {
+    error_log("REPORT DEBUG " . $label . ": " . json_encode($data, JSON_UNESCAPED_UNICODE));
+}
+
+function buildStructuredReportContent($state) {
+    $description = trim((string)($state["description"] ?? ""));
+    $category = normalizeCategory($state["category"] ?? "", $description . "\n" . ($state["additional_details"] ?? ""));
+    $urgency = mpNormalizeUrgencyValue($state["urgency"] ?? "", $description);
+    $additionalDetails = trim((string)($state["additional_details"] ?? ""));
+    $imageAnalysis = trim((string)($state["image_text_analysis"] ?? ""));
+
+    return implode("\n", [
+        "תיאור המקרה: " . $description,
+        "קטגוריה: " . $category,
+        "רמת דחיפות: " . $urgency,
+        "פירוט נוסף: " . ($additionalDetails !== "" ? $additionalDetails : "אין"),
+        "ניתוח תמונה אם קיים: " . ($imageAnalysis !== "" ? $imageAnalysis : "אין")
     ]);
-
-    return $pdo->lastInsertId();
 }
 
 function createReportFromState($pdo, $state, $volunteerId) {
-    $elderly = getAssignedElderlyForVolunteer($pdo, $volunteerId);
+    $elderly = getAssignedElderlyForVolunteer($pdo, $volunteerId, $GLOBALS["currentUser"] ?? null);
 
     if (!$elderly) {
         throw new RuntimeException("No assigned elderly found for volunteer");
     }
 
-    $content = "תיאור המקרה: " . ($state["description"] ?? "");
-    $content .= "\nקטגוריה: " . ($state["category"] ?? "אחר");
-    $content .= "\nרמת דחיפות: " . ($state["urgency"] ?? "");
-    $content .= "\nפירוט נוסף: " . (!empty($state["additional_details"]) ? $state["additional_details"] : "אין");
-
-    if (!empty($state["image_text_analysis"])) {
-        $content .= "\nניתוח טקסטואלי שאושר מתמונה: " . $state["image_text_analysis"];
+    if (!isMeaningfulDescription($state["description"] ?? "")) {
+        throw new RuntimeException("Report description is empty or not meaningful");
     }
+
+    if (empty($state["urgency"])) {
+        throw new RuntimeException("Report urgency is missing");
+    }
+
+    if (empty($state["urgency_confirmed"])) {
+        throw new RuntimeException("Report urgency must be confirmed before saving");
+    }
+
+    $state["category"] = normalizeCategory($state["category"] ?? "", ($state["description"] ?? "") . "\n" . ($state["additional_details"] ?? ""));
+    $state["urgency"] = mpNormalizeUrgencyValue($state["urgency"] ?? "", $state["description"] ?? "");
+    $content = buildStructuredReportContent($state);
+
+    logReportDebug("before_insert", [
+        "conversation_id" => $state["conversation_id"] ?? null,
+        "selected_volunteer_id" => $volunteerId,
+        "selected_elderly_id" => $elderly["id"] ?? null,
+        "ai_category" => $state["category"],
+        "urgency" => $state["urgency"],
+        "final_content_saved" => $content
+    ]);
 
     $reportId = saveReport(
         $pdo,
         $volunteerId,
         $elderly["id"],
         $content,
-        $state["urgency"] ?? "בינונית"
+        $state["urgency"]
     );
+
+    logReportDebug("after_insert", [
+        "conversation_id" => $state["conversation_id"] ?? null,
+        "report_id" => (string)$reportId
+    ]);
 
     try {
         sendReportCreatedEmail([
@@ -900,10 +1264,10 @@ function createReportFromState($pdo, $state, $volunteerId) {
             "elderly_id" => (string)$elderly["id"],
             "elderly_name" => personDisplayName($elderly),
             "description" => $content,
-            "urgency" => $state["urgency"] ?? "בינונית",
+            "urgency" => $state["urgency"],
             "status" => "הוגש",
             "created_at" => date("Y-m-d H:i:s"),
-            "category" => $state["category"] ?? "אחר"
+            "category" => $state["category"]
         ]);
     } catch (Throwable $e) {
         error_log("REPORT EMAIL ERROR: " . $e->getMessage());
@@ -914,11 +1278,13 @@ function createReportFromState($pdo, $state, $volunteerId) {
 
 function askForUrgency($state, $prefix = "") {
     $state["stage"] = "awaiting_urgency";
-    respond($prefix . "מה רמת הדחיפות של המקרה? אפשר לענות חופשי, למשל: לא דחוף, כדאי לטפל בקרוב, או דחוף מאוד.", $state);
+    respond($prefix . "מה רמת הדחיפות של המקרה? אפשר לענות חופשי או לבחור: נמוכה, בינונית, גבוהה או קריטית.", $state, [
+        "actions" => urgencyConfirmationActions($state["urgency_recommendation"] ?? "")
+    ]);
 }
 
 function handleClearDescription($analysis, $state) {
-    $state["category"] = $analysis["category"] ?: "אחר";
+    $state["category"] = normalizeCategory($analysis["category"] ?? "", ($analysis["proposed_description"] ?? "") . "\n" . ($state["pending_description"] ?? ""));
     addAdditionalDetail($state, $analysis["additional_details"]);
 
     $proposedDescription = $analysis["proposed_description"] ?: $state["pending_description"];
@@ -954,6 +1320,12 @@ function processDescriptionMessage($apiKey, $message, $state) {
         respond("אני מבין. כרגע ניתן לפתוח דיווח רק על קשיש שמשויך אליך במערכת. אם מדובר בקשיש אחר, יש לפנות לרכז כדי לפתוח תיק חדש או לשייך אותו אליך.", $state);
     }
 
+    if (empty($analysis["is_related_to_elderly_care"])) {
+        $state["stage"] = "awaiting_description";
+        $question = $analysis["clarification_question"] ?: "כדי לפתוח דיווח, מה הצורך או הבעיה שזיהית אצל הקשיש?";
+        respond($question, $state);
+    }
+
     if (!$analysis["is_clear_description"]) {
         $state["stage"] = "needs_clarification";
         $state["pending_description"] = trim(($state["pending_description"] ? $state["pending_description"] . "\n" : "") . $message);
@@ -963,11 +1335,27 @@ function processDescriptionMessage($apiKey, $message, $state) {
     }
 
     $state["pending_description"] = trim(($state["pending_description"] ? $state["pending_description"] . "\n" : "") . $message);
+    $state["category"] = normalizeCategory($analysis["category"] ?? "", $state["pending_description"]);
+
     handleClearDescription($analysis, $state);
 }
 
+$currentUser = requireLogin($pdo);
+$GLOBALS["currentUser"] = $currentUser;
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonResponse(["error" => "Method not allowed"], 405);
+}
+
+if (!mpAuthIsVolunteer($currentUser) && empty($currentUser["is_demo"])) {
+    jsonResponse([
+        "success" => false,
+        "reply" => "יצירת דיווח דרך צ׳אט הדיווח מיועדת למתנדבים בלבד.",
+        "assistant_message" => "יצירת דיווח דרך צ׳אט הדיווח מיועדת למתנדבים בלבד.",
+        "conversation_status" => "closed",
+        "disable_input" => true,
+        "report_created" => false
+    ], 403);
 }
 
 $geminiApiKey = envValue('GEMINI_API_KEY');
@@ -997,9 +1385,41 @@ if (!empty($state["closed"])) {
 }
 
 if ($action !== "") {
+    $urgencyActionMap = [
+        "set_urgency_low" => "נמוכה",
+        "set_urgency_medium" => "בינונית",
+        "set_urgency_high" => "גבוהה",
+        "set_urgency_critical" => "קריטית"
+    ];
+
+    if ($action === "confirm_urgency") {
+        $recommendedUrgency = $state["urgency_recommendation"] ?? "";
+
+        if (!$recommendedUrgency) {
+            askForUrgency($state, "לא נמצאה המלצת דחיפות פעילה.\n\n");
+        }
+
+        setConfirmedUrgencyAndSummarize($state, $recommendedUrgency);
+    }
+
+    if (isset($urgencyActionMap[$action])) {
+        setConfirmedUrgencyAndSummarize($state, $urgencyActionMap[$action]);
+    }
+
     if ($action === "confirm_report") {
-        if (empty($state["description"]) || empty($state["urgency"])) {
-            respond("חסר מידע חובה לפני יצירת הדיווח. נמשיך להשלים אותו בקצרה.", $state);
+        if (empty($state["description"]) || !isMeaningfulDescription($state["description"])) {
+            $state["stage"] = "awaiting_description";
+            $state["description"] = null;
+            $state["proposed_description"] = null;
+            respond("לפני יצירת דיווח צריך תיאור ברור של צורך אמיתי. כתוב במשפט אחד מה קרה ומה העזרה שנדרשת.", $state);
+        }
+
+        if (empty($state["urgency"])) {
+            askForUrgency($state, "חסרה רמת דחיפות לפני יצירת הדיווח.\n\n");
+        }
+
+        if (empty($state["urgency_confirmed"])) {
+            respondWithUrgencyRecommendation($state, "לפני יצירת הדיווח צריך לאשר את רמת הדחיפות.\n\n");
         }
 
         try {
@@ -1023,18 +1443,35 @@ if ($action !== "") {
             error_log("REPORT CREATE ERROR: " . $e->getMessage());
             $state["closed"] = false;
             saveConversationState($state);
+            $message = "לא הצלחנו ליצור את הדיווח כרגע. אפשר לנסות שוב בעוד רגע.";
+            $statusCode = 500;
+
+            if (stripos($e->getMessage(), "assigned elderly") !== false) {
+                $message = "לא ניתן ליצור דיווח כי לא נמצא קשיש שמשויך אליך במערכת. כרגע המערכת תומכת בדיווחים רק על קשישים משויכים.";
+                $statusCode = 400;
+            } elseif (stripos($e->getMessage(), "urgency") !== false) {
+                $state["stage"] = "awaiting_urgency";
+                saveConversationState($state);
+                $message = "חסרה רמת דחיפות לפני יצירת הדיווח. מה רמת הדחיפות: נמוכה, בינונית, גבוהה או קריטית?";
+                $statusCode = 400;
+            } elseif (stripos($e->getMessage(), "meaningful") !== false) {
+                $state["stage"] = "awaiting_description";
+                saveConversationState($state);
+                $message = "לפני יצירת דיווח צריך תיאור ברור של צורך אמיתי. כתוב במשפט אחד מה קרה ומה העזרה שנדרשת.";
+                $statusCode = 400;
+            }
 
             jsonResponse(basePayload(
-                "לא הצלחנו ליצור את הדיווח כרגע. אפשר לנסות שוב בעוד רגע.",
+                $message,
                 $state,
                 [
                     "success" => false,
                     "conversation_status" => "open",
                     "disable_input" => false,
                     "report_created" => false,
-                    "actions" => summaryActions()
+                    "actions" => ($state["stage"] ?? "") === "awaiting_summary_confirmation" ? summaryActions() : []
                 ]
-            ), 500);
+            ), $statusCode);
         }
     }
 
@@ -1043,13 +1480,20 @@ if ($action !== "") {
         $state["description"] = null;
         $state["pending_description"] = null;
         $state["proposed_description"] = null;
+        $state["urgency"] = null;
+        $state["urgency_recommendation"] = null;
+        $state["urgency_reason"] = null;
+        $state["urgency_confirmed"] = false;
         respond("בסדר. כתוב לי את התיאור המתוקן של המקרה, ואני אדייק את הדיווח.", $state);
     }
 
     if ($action === "change_urgency") {
         $state["stage"] = "awaiting_urgency";
         $state["urgency"] = null;
-        respond("מה רמת הדחיפות המעודכנת? אפשר לכתוב חופשי, למשל לא דחוף, כדאי לטפל בקרוב או דחוף מאוד.", $state);
+        $state["urgency_confirmed"] = false;
+        respond("מה רמת הדחיפות המעודכנת? אפשר לכתוב חופשי או לבחור: נמוכה, בינונית, גבוהה או קריטית.", $state, [
+            "actions" => urgencyConfirmationActions()
+        ]);
     }
 
     if ($action === "cancel") {
@@ -1103,8 +1547,8 @@ if ($state["stage"] === "awaiting_image_confirmation") {
         respond("תודה, עכשיו כתוב לי בקצרה מה קרה או מה הצורך המרכזי.", $state);
     }
 
-    if (empty($state["urgency"])) {
-        askForUrgency($state, "תודה, עדכנתי את הדיווח לפי התמונה.\n\n");
+    if (empty($state["urgency"]) || empty($state["urgency_confirmed"])) {
+        respondWithUrgencyRecommendation($state, "תודה, עדכנתי את הדיווח לפי התמונה.\n\n");
     }
 
     respondWithSummary($state);
@@ -1116,8 +1560,14 @@ if ($state["stage"] === "awaiting_description_approval") {
         $state["pending_description"] = null;
         $state["proposed_description"] = null;
 
-        if (empty($state["urgency"])) {
-            askForUrgency($state, "תודה, עדכנתי את תיאור המקרה.\n\n");
+        if (!isMeaningfulDescription($state["description"])) {
+            $state["description"] = null;
+            $state["stage"] = "awaiting_description";
+            respond("כדי לפתוח דיווח צריך תיאור קצת יותר ברור של הצורך. כתוב במשפט אחד מה קרה ומה העזרה שנדרשת.", $state);
+        }
+
+        if (empty($state["urgency"]) || empty($state["urgency_confirmed"])) {
+            respondWithUrgencyRecommendation($state, "תודה, עדכנתי את תיאור המקרה.\n\n");
         }
 
         respondWithSummary($state);
@@ -1137,11 +1587,24 @@ if ($state["stage"] === "awaiting_urgency") {
     $urgency = normalizeUrgency($geminiApiKey, $message);
 
     if ($urgency === null) {
-        respond("לא הצלחתי להבין את רמת הדחיפות. האם היא נמוכה, בינונית או גבוהה?", $state);
+        respond("לא הצלחתי להבין את רמת הדחיפות. האם היא נמוכה, בינונית, גבוהה או קריטית?", $state, [
+            "actions" => urgencyConfirmationActions()
+        ]);
     }
 
-    $state["urgency"] = $urgency;
-    respondWithSummary($state);
+    setConfirmedUrgencyAndSummarize($state, $urgency);
+}
+
+if ($state["stage"] === "awaiting_urgency_confirmation") {
+    $urgency = normalizeUrgency($geminiApiKey, $message);
+
+    if ($urgency) {
+        setConfirmedUrgencyAndSummarize($state, $urgency);
+    }
+
+    respond("כדי להמשיך, אפשר לאשר את ההמלצה או לבחור רמת דחיפות אחרת.", $state, [
+        "actions" => urgencyConfirmationActions($state["urgency_recommendation"] ?? "")
+    ]);
 }
 
 if ($state["stage"] === "awaiting_summary_confirmation") {

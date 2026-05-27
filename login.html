@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>נקודות חיבור - התחברות</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Heebo:wght@500;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background:
+                linear-gradient(135deg, rgba(255, 247, 237, 0.92), rgba(248, 250, 252, 0.96)),
+                #f8fafc;
+        }
+
+        .login-shell {
+            width: min(980px, 100%);
+            display: grid;
+            grid-template-columns: 0.95fr 1.05fr;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 22px;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.14);
+            overflow: hidden;
+        }
+
+        .login-intro {
+            padding: 34px;
+            background: #fff7ed;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 28px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--primary-orange);
+            font-weight: 800;
+            font-size: 1.35rem;
+        }
+
+        .brand i {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #f1a340, #ff7e5f);
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 12px 24px rgba(241, 163, 64, 0.24);
+        }
+
+        .login-intro h1 {
+            margin: 0 0 10px;
+            color: var(--dark-blue);
+            font-size: 2rem;
+            line-height: 1.15;
+        }
+
+        .login-intro p {
+            margin: 0;
+            color: var(--text-muted);
+            line-height: 1.6;
+            font-weight: 700;
+        }
+
+        .demo-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .demo-card {
+            border: 1px solid #fed7aa;
+            border-radius: 16px;
+            padding: 13px 14px;
+            background: white;
+            color: var(--dark-blue);
+            cursor: pointer;
+            text-align: right;
+            transition: 0.2s ease;
+        }
+
+        .demo-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(241, 163, 64, 0.12);
+        }
+
+        .demo-card strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .demo-card span {
+            color: var(--text-muted);
+            font-weight: 700;
+            direction: ltr;
+            unicode-bidi: plaintext;
+        }
+
+        .login-panel {
+            padding: 38px;
+        }
+
+        .login-panel h2 {
+            margin: 0 0 8px;
+            color: var(--dark-blue);
+            font-size: 1.7rem;
+        }
+
+        .login-panel p {
+            margin: 0 0 24px;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .login-form {
+            display: grid;
+            gap: 14px;
+        }
+
+        .login-field {
+            display: grid;
+            gap: 7px;
+        }
+
+        .login-field label {
+            color: var(--dark-blue);
+            font-weight: 800;
+        }
+
+        .login-field input {
+            border: 1px solid #e2e8f0;
+            border-radius: 13px;
+            padding: 12px 13px;
+            font-size: 1rem;
+            outline: none;
+            direction: ltr;
+            text-align: left;
+        }
+
+        .login-field input:focus {
+            border-color: rgba(241, 163, 64, 0.7);
+            box-shadow: 0 0 0 4px rgba(241, 163, 64, 0.12);
+        }
+
+        .login-submit {
+            border: 0;
+            border-radius: 13px;
+            background: var(--primary-orange);
+            color: white;
+            min-height: 48px;
+            padding: 12px 18px;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .login-submit:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .login-message {
+            display: none;
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-weight: 800;
+        }
+
+        .login-message.active {
+            display: block;
+        }
+
+        .login-message.error {
+            color: #dc2626;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+        }
+
+        .login-message.success {
+            color: #059669;
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+        }
+
+        @media (max-width: 820px) {
+            body {
+                padding: 14px;
+                place-items: start center;
+            }
+
+            .login-shell {
+                grid-template-columns: 1fr;
+            }
+
+            .login-intro,
+            .login-panel {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="login-shell" aria-label="כניסה למערכת נקודות חיבור">
+        <section class="login-intro">
+            <div>
+                <div class="brand">
+                    <i class="fa-solid fa-hands-holding-circle"></i>
+                    <span>נקודות חיבור</span>
+                </div>
+                <h1>כניסה למערכת הדמו</h1>
+                <p>בחרו חשבון דמו או הזינו פרטי התחברות. לאחר הכניסה תועברו אוטומטית לחוויית מתנדב או מנהל עמותה.</p>
+            </div>
+
+            <div class="demo-list" aria-label="חשבונות דמו">
+                <button type="button" class="demo-card" onclick="fillDemo('volunteer')">
+                    <strong>מתנדב</strong>
+                    <span>volunteer.demo@hiburim.local</span>
+                </button>
+                <button type="button" class="demo-card" onclick="fillDemo('manager')">
+                    <strong>מנהל עמותה</strong>
+                    <span>manager.demo@hiburim.local</span>
+                </button>
+            </div>
+        </section>
+
+        <section class="login-panel">
+            <h2>התחברות</h2>
+            <p>המערכת תציג רק את המסכים והנתונים המותרים לפי סוג החשבון.</p>
+
+            <form class="login-form" id="loginForm">
+                <div class="login-message" id="loginMessage"></div>
+
+                <div class="login-field">
+                    <label for="loginInput">אימייל או שם משתמש</label>
+                    <input id="loginInput" type="text" autocomplete="username" required>
+                </div>
+
+                <div class="login-field">
+                    <label for="passwordInput">סיסמה</label>
+                    <input id="passwordInput" type="password" autocomplete="current-password" required>
+                </div>
+
+                <button class="login-submit" id="loginSubmit" type="submit">
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    כניסה
+                </button>
+            </form>
+        </section>
+    </main>
+
+    <script>
+        const demoAccounts = {
+            volunteer: {
+                login: 'volunteer.demo@hiburim.local',
+                password: 'Volunteer123!'
+            },
+            manager: {
+                login: 'manager.demo@hiburim.local',
+                password: 'Manager123!'
+            }
+        };
+
+        function showMessage(message, type = 'error') {
+            const box = document.getElementById('loginMessage');
+            box.textContent = message;
+            box.className = `login-message active ${type}`;
+        }
+
+        function fillDemo(type) {
+            const account = demoAccounts[type];
+            if (!account) return;
+            document.getElementById('loginInput').value = account.login;
+            document.getElementById('passwordInput').value = account.password;
+            document.getElementById('passwordInput').focus();
+        }
+
+        function redirectForUser(user, fallbackRedirect) {
+            window.location.href = fallbackRedirect || 'index.html';
+        }
+
+        async function checkExistingSession() {
+            try {
+                const response = await fetch('./api/me.php', { cache: 'no-store' });
+                const data = await response.json();
+
+                if (response.ok && data.success && data.user) {
+                    redirectForUser(data.user);
+                }
+            } catch (error) {
+                // Staying on the login page is the safe fallback.
+            }
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async event => {
+            event.preventDefault();
+            const button = document.getElementById('loginSubmit');
+            button.disabled = true;
+            showMessage('בודק פרטי התחברות...', 'success');
+
+            try {
+                const response = await fetch('./api/login.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        login: document.getElementById('loginInput').value.trim(),
+                        password: document.getElementById('passwordInput').value
+                    })
+                });
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'פרטי ההתחברות אינם נכונים.');
+                }
+
+                showMessage('התחברת בהצלחה. מעבירים אותך...', 'success');
+                redirectForUser(data.user, data.redirect);
+            } catch (error) {
+                showMessage(error.message || 'לא הצלחנו להתחבר כרגע.', 'error');
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        checkExistingSession();
+    </script>
+</body>
+</html>

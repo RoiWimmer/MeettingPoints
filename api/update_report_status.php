@@ -4,6 +4,10 @@ header("Content-Type: application/json; charset=UTF-8");
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/email.php';
+require_once __DIR__ . '/report_helpers.php';
+require_once __DIR__ . '/auth.php';
+
+$currentUser = requireLogin($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -13,6 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
+
+requireRole("ngo_manager", $currentUser);
 
 $input = json_decode(file_get_contents("php://input"), true);
 
@@ -31,6 +37,15 @@ if (!$reportId || !in_array($newStatus, $allowedStatuses, true)) {
 }
 
 try {
+    if (!canAccessReport($pdo, $reportId, $currentUser)) {
+        http_response_code(403);
+        echo json_encode([
+            "success" => false,
+            "message" => "אין לך הרשאה לעדכן את הדיווח הזה."
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     $stmt = $pdo->prepare("
         SELECT
             id,
@@ -86,20 +101,56 @@ try {
         ":id" => $reportId
     ]);
 
-    $historyStmt = $pdo->prepare("
-        INSERT INTO report_status_history
-        (report_id, old_status, new_status, changed_by, notes, created_at)
-        VALUES
-        (:report_id, :old_status, :new_status, :changed_by, :notes, NOW())
-    ");
+    $historySaved = false;
 
-    $historyStmt->execute([
-        ":report_id" => $reportId,
-        ":old_status" => $oldStatus,
-        ":new_status" => $newStatus,
-        ":changed_by" => 1,
-        ":notes" => "Status updated from reports dashboard"
-    ]);
+    if (mpDbTableExists($pdo, "report_status_history")) {
+        $historyColumns = mpDbTableColumns($pdo, "report_status_history");
+
+        if (
+            mpColumnExists($historyColumns, "report_id") &&
+            mpColumnExists($historyColumns, "old_status") &&
+            mpColumnExists($historyColumns, "new_status")
+        ) {
+            $historyInsertColumns = ["report_id", "old_status", "new_status"];
+            $historyPlaceholders = [":report_id", ":old_status", ":new_status"];
+            $historyParams = [
+                ":report_id" => $reportId,
+                ":old_status" => $oldStatus,
+                ":new_status" => $newStatus
+            ];
+
+            if (mpColumnExists($historyColumns, "changed_by")) {
+                $historyInsertColumns[] = "changed_by";
+                $historyPlaceholders[] = ":changed_by";
+                $historyParams[":changed_by"] = (int)($currentUser["user_id"] ?? $currentUser["id"] ?? 1);
+            }
+
+            if (mpColumnExists($historyColumns, "notes")) {
+                $historyInsertColumns[] = "notes";
+                $historyPlaceholders[] = ":notes";
+                $historyParams[":notes"] = "Status updated from reports dashboard";
+            }
+
+            if (mpColumnExists($historyColumns, "created_at")) {
+                $historyInsertColumns[] = "created_at";
+                $historyPlaceholders[] = "NOW()";
+            }
+
+            try {
+                $historyStmt = $pdo->prepare("
+                    INSERT INTO report_status_history
+                    (" . implode(", ", array_map("mpQuoteIdentifier", $historyInsertColumns)) . ")
+                    VALUES
+                    (" . implode(", ", $historyPlaceholders) . ")
+                ");
+
+                $historyStmt->execute($historyParams);
+                $historySaved = true;
+            } catch (Throwable $historyError) {
+                error_log("STATUS HISTORY INSERT ERROR: " . $historyError->getMessage());
+            }
+        }
+    }
 
     $pdo->commit();
 
@@ -119,7 +170,7 @@ try {
                 "updated_at" => date("Y-m-d H:i:s")
             ]);
         }
-    } catch (Exception $emailError) {
+    } catch (Throwable $emailError) {
         error_log("STATUS EMAIL ERROR: " . $emailError->getMessage());
     }
 
@@ -128,11 +179,11 @@ try {
         "message" => "Status updated successfully",
         "old_status" => $oldStatus,
         "new_status" => $newStatus,
-        "history_saved" => true,
+        "history_saved" => $historySaved,
         "email_sent" => $emailSent
     ], JSON_UNESCAPED_UNICODE);
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }

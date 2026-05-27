@@ -5,23 +5,33 @@
   const STORAGE_COLLAPSED = 'hiburim.sidebar.collapsed';
 
   const navItems = [
-    { page: 'home', href: 'index.html', icon: 'fa-solid fa-house', label: 'בית' },
-    { page: 'reports', href: 'reports.html', icon: 'fa-solid fa-file-invoice', label: 'דיווחים' },
-    { page: 'chatbot', href: 'chatbot.html', icon: 'fa-solid fa-comment', label: "צ'אט דיווח" },
-    { section: 'ניהול עמותה' },
-    { page: 'insights', href: 'statusAI.html#overview', icon: 'fa-solid fa-chart-pie', label: 'תובנות' },
-    { page: 'ai-reports', href: 'statusAI.html#ai', icon: 'fa-solid fa-wand-magic-sparkles', label: 'דוחות AI' },
-    { page: 'calendar', href: 'calendar.html', icon: 'fa-solid fa-calendar', label: 'יומן' },
-    { page: 'profile', href: 'profile.html', icon: 'fa-solid fa-user', label: 'פרופיל' },
-    { page: 'about', href: 'about.html', icon: 'fa-solid fa-circle-info', label: 'אודות' }
+    { page: 'home', href: 'index.html', icon: 'fa-solid fa-house', label: 'בית', roles: ['volunteer', 'manager'] },
+    { page: 'reports', href: 'reports.html', icon: 'fa-solid fa-file-invoice', label: 'דיווחים', roles: ['volunteer', 'manager'] },
+    { page: 'my-elderly', href: 'my_elderly.html', icon: 'fa-solid fa-hand-holding-heart', label: 'הקשיש שלי', roles: ['volunteer'] },
+    { page: 'chatbot', href: 'chatbot.html', icon: 'fa-solid fa-comment', label: "צ'אט דיווח", roles: ['volunteer'] },
+    { section: 'ניהול עמותה', roles: ['manager'] },
+    { page: 'insights', href: 'statusAI.html#overview', icon: 'fa-solid fa-chart-pie', label: 'תובנות', roles: ['manager'] },
+    { page: 'ai-reports', href: 'statusAI.html#ai', icon: 'fa-solid fa-wand-magic-sparkles', label: 'דוחות AI', roles: ['manager'] },
+    { page: 'people', href: 'manager_people.html', icon: 'fa-solid fa-people-arrows', label: 'מתנדבים וקשישים', roles: ['manager'] },
+    { page: 'calendar', href: 'calendar.html', icon: 'fa-solid fa-calendar', label: 'יומן', roles: ['volunteer'] },
+    { page: 'profile', href: 'profile.html', icon: 'fa-solid fa-user', label: 'פרופיל', roles: ['volunteer', 'manager'] },
+    { page: 'about', href: 'about.html', icon: 'fa-solid fa-circle-info', label: 'אודות', roles: ['volunteer', 'manager'] },
+    { page: 'logout', href: '#logout', icon: 'fa-solid fa-right-from-bracket', label: 'התנתקות', action: 'logout' }
   ];
+
+  let currentUser = null;
+  let currentUserPromise = null;
+  let supportAssetsLoaded = false;
 
   const filenameToPage = {
     '': 'home',
     'index.html': 'home',
     'reports.html': 'reports',
+    'my_elderly.html': 'my-elderly',
     'chatbot.html': 'chatbot',
     'statusai.html': 'insights',
+    'assignments.html': 'assignments',
+    'manager_people.html': 'people',
     'calendar.html': 'calendar',
     'profile.html': 'profile',
     'about.html': 'about'
@@ -41,8 +51,48 @@
 
     if (filename === 'statusai.html' && hash === 'ai') return 'ai-reports';
     if (filename === 'statusai.html') return 'insights';
+    if (filename === 'assignments.html' && ['volunteers', 'elderly', 'assignments'].includes(hash)) return hash;
 
     return filenameToPage[filename] || 'home';
+  }
+
+  function normalizedRole(user) {
+    if (!user) return null;
+    if (user.role === 'manager' || user.role_key === 'ngo_manager') return 'manager';
+    return user.role || null;
+  }
+
+  function itemAllowed(item, user) {
+    if (!item.roles || !item.roles.length) return true;
+    if (!user) return false;
+    return item.roles.includes(normalizedRole(user));
+  }
+
+  function visibleNavItems(user) {
+    if (!user) return [];
+
+    const items = [];
+
+    navItems.forEach((item, index) => {
+      if (item.section) {
+        const hasVisibleItems = navItems.slice(index + 1).some(nextItem => {
+          if (nextItem.section) return false;
+          return itemAllowed(nextItem, user);
+        });
+
+        if (itemAllowed(item, user) && hasVisibleItems) {
+          items.push(item);
+        }
+
+        return;
+      }
+
+      if (itemAllowed(item, user)) {
+        items.push(item);
+      }
+    });
+
+    return items;
   }
 
   function navLink(item, activePage, mobile) {
@@ -50,12 +100,15 @@
     const className = mobile ? 'mobile-link' : 'nav-link';
     const activeClass = active ? ' active' : '';
     const current = active ? ' aria-current="page"' : '';
+    const action = item.action ? ` data-action="${item.action}"` : '';
     const label = mobile ? `<span>${item.label}</span>` : `<span class="nav-text">${item.label}</span>`;
 
-    return `<a href="${item.href}" class="${className}${activeClass}" data-page="${item.page}"${current}><i class="${item.icon}"></i>${label}</a>`;
+    return `<a href="${item.href}" class="${className}${activeClass}" data-page="${item.page}"${action}${current}><i class="${item.icon}"></i>${label}</a>`;
   }
 
-  function sidebarMarkup(activePage) {
+  function sidebarMarkup(activePage, user) {
+    const items = visibleNavItems(user);
+
     return `
       <div class="sidebar-header">
         <button class="sidebar-toggle" type="button" aria-label="כיווץ תפריט" aria-expanded="true" title="כיווץ תפריט">
@@ -67,7 +120,7 @@
         </div>
       </div>
       <nav class="sidebar-nav" aria-label="ניווט ראשי">
-        ${navItems.map(item => (
+        ${items.map(item => (
           item.section
             ? `<div class="nav-section-label">${item.section}</div>`
             : navLink(item, activePage, false)
@@ -77,8 +130,8 @@
     `;
   }
 
-  function mobileMarkup(activePage) {
-    return navItems
+  function mobileMarkup(activePage, user) {
+    return visibleNavItems(user)
       .filter(item => !item.section)
       .map(item => navLink(item, activePage, true))
       .join('');
@@ -95,6 +148,29 @@
         link.removeAttribute('aria-current');
       }
     });
+  }
+
+  function currentPageAllowed(user) {
+    const filename = currentFilename();
+
+    if (filename === 'login.html') {
+      return true;
+    }
+
+    if (filename === 'assignments.html') {
+      return ['volunteer', 'manager'].includes(normalizedRole(user));
+    }
+
+    const activePage = currentPage();
+    return visibleNavItems(user).some(item => !item.section && item.page === activePage);
+  }
+
+  function redirectIfPageForbidden(user) {
+    if (!user || currentPageAllowed(user)) {
+      return;
+    }
+
+    window.location.href = 'index.html';
   }
 
   function clampWidth(width) {
@@ -244,7 +320,7 @@
     const sidebar = document.querySelector('[data-sidebar]') || document.querySelector('.sidebar');
     if (sidebar) {
       sidebar.className = 'sidebar';
-      sidebar.innerHTML = sidebarMarkup(activePage);
+      sidebar.innerHTML = sidebarMarkup(activePage, currentUser);
       bindSidebarControls(sidebar);
     }
 
@@ -260,19 +336,115 @@
     if (mobileNav) {
       mobileNav.className = 'mobile-nav';
       mobileNav.setAttribute('aria-label', 'ניווט תחתון');
-      mobileNav.innerHTML = mobileMarkup(activePage);
+      mobileNav.innerHTML = mobileMarkup(activePage, currentUser);
+    }
+
+    bindGlobalNavActions();
+  }
+
+  async function loadCurrentUser() {
+    if (currentUserPromise) return currentUserPromise;
+
+    currentUserPromise = fetch('./api/me.php', { cache: 'no-store' })
+      .then(response => {
+        if (response.status === 401 || response.status === 403) {
+          redirectToLogin();
+          return null;
+        }
+
+        return response.ok ? response.json() : null;
+      })
+      .then(payload => {
+        currentUser = payload?.user || null;
+        window.HiburimCurrentUser = currentUser;
+        window.dispatchEvent(new CustomEvent('hiburim:user-ready', { detail: currentUser }));
+        return currentUser;
+      })
+      .catch(() => {
+        currentUser = null;
+        return null;
+      });
+
+    return currentUserPromise;
+  }
+
+  function redirectToLogin() {
+    const filename = currentFilename();
+    if (filename === 'login.html') return;
+    const next = encodeURIComponent(window.location.pathname.split('/').pop() + window.location.search + window.location.hash);
+    window.location.href = `login.html?next=${next}`;
+  }
+
+  async function logout() {
+    try {
+      await fetch('./api/logout.php', { method: 'POST', cache: 'no-store' });
+    } catch (error) {
+      // Redirect even if the network request fails; the server will still protect APIs.
+    }
+
+    try {
+      sessionStorage.removeItem('mp_activeConversation');
+    } catch (error) {
+      // Optional local cleanup.
+    }
+
+    window.location.href = 'login.html';
+  }
+
+  function bindGlobalNavActions() {
+    document.querySelectorAll('[data-action="logout"]').forEach(link => {
+      if (link.dataset.boundAction === 'true') return;
+      link.dataset.boundAction = 'true';
+      link.addEventListener('click', event => {
+        event.preventDefault();
+        logout();
+      });
+    });
+  }
+
+  function ensureSupportChatbotAssets() {
+    if (supportAssetsLoaded) return;
+    supportAssetsLoaded = true;
+
+    if (!document.querySelector('link[data-support-chatbot-css]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'assets/css/support-chatbot.css';
+      link.dataset.supportChatbotCss = '';
+      document.head.appendChild(link);
+    }
+
+    if (!document.querySelector('script[data-support-chatbot-js]')) {
+      const script = document.createElement('script');
+      script.src = 'assets/js/support-chatbot.js';
+      script.defer = true;
+      script.dataset.supportChatbotJs = '';
+      document.body.appendChild(script);
     }
   }
 
   window.HiburimSidebar = {
     render: renderSidebar,
-    updateActive
+    updateActive,
+    getCurrentUser: loadCurrentUser
   };
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', renderSidebar);
+    document.addEventListener('DOMContentLoaded', () => {
+      renderSidebar();
+      loadCurrentUser().then(user => {
+        redirectIfPageForbidden(user);
+        renderSidebar();
+        if (user) ensureSupportChatbotAssets();
+      });
+    });
   } else {
     renderSidebar();
+    loadCurrentUser().then(user => {
+      redirectIfPageForbidden(user);
+      renderSidebar();
+      if (user) ensureSupportChatbotAssets();
+    });
   }
 
   window.addEventListener('hashchange', updateActive);

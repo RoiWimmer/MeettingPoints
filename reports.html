@@ -301,6 +301,7 @@
                         <option value="נמוכה">נמוכה</option>
                         <option value="בינונית">בינונית</option>
                         <option value="גבוהה">גבוהה</option>
+                        <option value="קריטית">קריטית</option>
                     </select>
                 </div>
 
@@ -336,6 +337,10 @@
 
     <script>
         let reportsData = [];
+        let pagePermissions = {
+            can_manage_status: false
+        };
+        let currentUser = null;
 
         async function loadReports() {
             const reportList = document.getElementById('reportList');
@@ -351,6 +356,9 @@
                 }
 
                 reportsData = data.reports || [];
+                pagePermissions = data.permissions || pagePermissions;
+                currentUser = data.current_user || currentUser;
+                applyRoleUi();
                 renderReports();
 
             } catch (error) {
@@ -413,17 +421,23 @@
                 const displayStatus = normalizeStatus(report.status || '');
                 const statusClass = getStatusClass(displayStatus);
 
+                const statusControl = pagePermissions.can_manage_status
+                    ? `
+                        <select class="status-select status-${statusClass}" onchange="updateReportStatus(${Number(report.id)}, this.value)">
+                            ${statusOption(displayStatus, 'הוגש')}
+                            ${statusOption(displayStatus, 'בטיפול')}
+                            ${statusOption(displayStatus, 'טופל')}
+                        </select>
+                    `
+                    : `<span class="status-select status-${statusClass}" aria-label="סטטוס">${escapeHtml(displayStatus)}</span>`;
+
                 return `
                     <div class="report-card status-card-${statusClass}">
                         <div class="report-card-header">
                             <span class="report-title">דיווח #${escapeHtml(report.id)}</span>
 
                             <div class="status-tools">
-                                <select class="status-select status-${statusClass}" onchange="updateReportStatus(${Number(report.id)}, this.value)">
-                                    ${statusOption(displayStatus, 'הוגש')}
-                                    ${statusOption(displayStatus, 'בטיפול')}
-                                    ${statusOption(displayStatus, 'טופל')}
-                                </select>
+                                ${statusControl}
                             </div>
                         </div>
 
@@ -443,6 +457,11 @@
         }
 
         async function updateReportStatus(reportId, newStatus) {
+            if (!pagePermissions.can_manage_status) {
+                showPageMessage('אין לך הרשאה לעדכן סטטוס דיווח.', 'error');
+                return;
+            }
+
             try {
                 showPageMessage('מעדכן סטטוס...', 'info');
 
@@ -603,6 +622,17 @@
             document.getElementById('dateToFilter').value = '';
 
             renderReports();
+        }
+
+        function applyRoleUi() {
+            const isVolunteer = currentUser && currentUser.role === 'volunteer';
+            ['volunteerFilter', 'elderlyFilter'].forEach(id => {
+                const input = document.getElementById(id);
+                const item = input?.closest('.filter-item');
+                if (item) {
+                    item.style.display = isVolunteer ? 'none' : '';
+                }
+            });
         }
 
         function showPageMessage(message, type) {

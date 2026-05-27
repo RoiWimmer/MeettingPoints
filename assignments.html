@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>נקודות חיבור - שיוכים</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="sidebar.css">
+    <link rel="stylesheet" href="help-tooltips.css">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Heebo:wght@500;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
+
+        .tab-btn {
+            border: 1px solid #fed7aa;
+            background: #fff7ed;
+            color: var(--primary-orange);
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .tab-btn.active {
+            background: var(--primary-orange);
+            color: white;
+            border-color: transparent;
+        }
+
+        .panel {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .panel + .panel {
+            margin-top: 18px;
+        }
+
+        .panel h2 {
+            margin: 0 0 14px;
+            color: var(--dark-blue);
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 620px;
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid #f1f5f9;
+            padding: 12px 10px;
+            text-align: right;
+            color: #334155;
+            font-weight: 700;
+        }
+
+        th {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            font-weight: 800;
+        }
+
+        .assignment-form {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+            gap: 10px;
+            align-items: end;
+            margin-bottom: 18px;
+        }
+
+        .field {
+            display: grid;
+            gap: 6px;
+        }
+
+        .field label {
+            color: var(--text-muted);
+            font-weight: 800;
+        }
+
+        .field select {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 1rem;
+            outline: none;
+            background: white;
+        }
+
+        .save-btn {
+            border: 0;
+            border-radius: 12px;
+            background: var(--primary-orange);
+            color: white;
+            padding: 11px 18px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .message {
+            display: none;
+            margin-bottom: 14px;
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-weight: 800;
+        }
+
+        .message.active {
+            display: block;
+        }
+
+        .message.success {
+            color: #059669;
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+        }
+
+        .message.error {
+            color: #dc2626;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+        }
+
+        @media (max-width: 760px) {
+            .assignment-form {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <aside class="sidebar" data-sidebar></aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="welcome-text">
+                    <h1>שיוכים ואנשים</h1>
+                    <p id="pageSubtitle">ניהול מתנדבים, קשישים ושיוכים לפי הרשאות המשתמש.</p>
+                </div>
+            </header>
+
+            <nav class="tabs" id="tabs"></nav>
+            <div id="pageMessage" class="message"></div>
+
+            <section class="panel" id="assignmentPanel" hidden>
+                <h2>שיוך מתנדב לקשיש</h2>
+                <form class="assignment-form" id="assignmentForm">
+                    <div class="field">
+                        <label for="volunteerSelect">מתנדב</label>
+                        <select id="volunteerSelect" required></select>
+                    </div>
+                    <div class="field">
+                        <label for="elderlySelect">קשיש</label>
+                        <select id="elderlySelect" required></select>
+                    </div>
+                    <button class="save-btn" type="submit">שמירת שיוך</button>
+                </form>
+            </section>
+
+            <section class="panel" id="contentPanel">
+                <h2 id="panelTitle">טוען...</h2>
+                <div class="table-wrap" id="tableWrap"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="sidebar.js"></script>
+    <script src="help-tooltips.js"></script>
+    <script>
+        let pageData = {
+            volunteers: [],
+            elderly: [],
+            assignments: [],
+            current_user: null
+        };
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function displayName(row) {
+            return row.full_name || row.name || row.display_name || [row.first_name, row.last_name].filter(Boolean).join(' ') || `#${row.id || ''}`;
+        }
+
+        function showMessage(message, type = 'success') {
+            const box = document.getElementById('pageMessage');
+            box.textContent = message;
+            box.className = `message active ${type}`;
+            setTimeout(() => {
+                box.className = 'message';
+            }, 3500);
+        }
+
+        function currentTab() {
+            const hash = window.location.hash.replace('#', '');
+            const role = pageData.current_user?.role;
+
+            if (role === 'volunteer') {
+                return 'elderly';
+            }
+
+            return ['volunteers', 'elderly', 'assignments'].includes(hash) ? hash : 'assignments';
+        }
+
+        function renderTabs() {
+            const role = pageData.current_user?.role;
+            const active = currentTab();
+            const tabs = role === 'volunteer'
+                ? [{ id: 'elderly', label: 'הקשישים שלי', icon: 'fa-person-cane' }]
+                : [
+                    { id: 'volunteers', label: 'מתנדבים', icon: 'fa-people-group' },
+                    { id: 'elderly', label: 'קשישים', icon: 'fa-person-cane' },
+                    { id: 'assignments', label: 'שיוכים', icon: 'fa-link' }
+                ];
+
+            document.getElementById('tabs').innerHTML = tabs.map(tab => `
+                <button type="button" class="tab-btn ${tab.id === active ? 'active' : ''}" onclick="switchTab('${tab.id}')">
+                    <i class="fa-solid ${tab.icon}"></i> ${tab.label}
+                </button>
+            `).join('');
+        }
+
+        function renderTable(columns, rows) {
+            if (!rows.length) {
+                return '<p class="page-explanation">אין נתונים להצגה כרגע.</p>';
+            }
+
+            return `
+                <table>
+                    <thead>
+                        <tr>${columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(row => `
+                            <tr>
+                                ${columns.map(column => `<td>${escapeHtml(column.value(row))}</td>`).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function renderContent() {
+            const tab = currentTab();
+            const title = {
+                volunteers: 'מתנדבים בעמותה',
+                elderly: pageData.current_user?.role === 'volunteer' ? 'הקשישים שמשויכים אליי' : 'קשישים בעמותה',
+                assignments: 'שיוכי מתנדבים וקשישים'
+            }[tab] || 'נתונים';
+
+            document.getElementById('panelTitle').textContent = title;
+            document.getElementById('assignmentPanel').hidden = pageData.current_user?.role !== 'manager' || tab !== 'assignments';
+
+            if (tab === 'volunteers') {
+                document.getElementById('tableWrap').innerHTML = renderTable([
+                    { label: 'מספר', value: row => row.id },
+                    { label: 'שם', value: displayName },
+                    { label: 'טלפון', value: row => row.phone || row.mobile || '' },
+                    { label: 'אימייל', value: row => row.email || '' },
+                    { label: 'אזור', value: row => row.area || row.service_area || row.city || '' }
+                ], pageData.volunteers || []);
+                return;
+            }
+
+            if (tab === 'elderly') {
+                document.getElementById('tableWrap').innerHTML = renderTable([
+                    { label: 'מספר', value: row => row.id },
+                    { label: 'שם', value: displayName },
+                    { label: 'טלפון', value: row => row.phone || row.mobile || '' },
+                    { label: 'אזור', value: row => row.area || row.city || row.neighborhood || '' },
+                    { label: 'כתובת', value: row => row.address || '' }
+                ], pageData.elderly || []);
+                return;
+            }
+
+            document.getElementById('tableWrap').innerHTML = renderTable([
+                { label: 'מספר שיוך', value: row => row.id },
+                { label: 'מתנדב', value: row => row.volunteer_id },
+                { label: 'קשיש', value: row => row.elderly_id },
+                { label: 'עמותה', value: row => row.organization_id || '' },
+                { label: 'נוצר בתאריך', value: row => row.created_at || '' }
+            ], pageData.assignments || []);
+        }
+
+        function renderAssignmentForm() {
+            const volunteerSelect = document.getElementById('volunteerSelect');
+            const elderlySelect = document.getElementById('elderlySelect');
+
+            volunteerSelect.innerHTML = (pageData.volunteers || []).map(row => `
+                <option value="${escapeHtml(row.id)}">${escapeHtml(displayName(row))} (#${escapeHtml(row.id)})</option>
+            `).join('');
+
+            elderlySelect.innerHTML = (pageData.elderly || []).map(row => `
+                <option value="${escapeHtml(row.id)}">${escapeHtml(displayName(row))} (#${escapeHtml(row.id)})</option>
+            `).join('');
+        }
+
+        function renderPage() {
+            renderTabs();
+            renderAssignmentForm();
+            renderContent();
+            window.HiburimSidebar?.updateActive?.();
+        }
+
+        function switchTab(tab) {
+            window.location.hash = tab;
+            renderPage();
+        }
+
+        async function loadData() {
+            try {
+                const response = await fetch('./api/assignments.php', { cache: 'no-store' });
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'לא הצלחנו לטעון נתונים.');
+                }
+
+                pageData = {
+                    volunteers: data.volunteers || [],
+                    elderly: data.elderly || [],
+                    assignments: data.assignments || [],
+                    current_user: data.current_user || null
+                };
+
+                document.getElementById('pageSubtitle').textContent = pageData.current_user?.role === 'volunteer'
+                    ? 'כאן מוצגים הקשישים שמשויכים אליך במערכת.'
+                    : 'כאן ניתן לצפות במתנדבים, קשישים ושיוכים בתוך העמותה שלך.';
+
+                renderPage();
+            } catch (error) {
+                console.error('ASSIGNMENTS LOAD ERROR:', error);
+                showMessage(error.message || 'שגיאה בטעינת הנתונים.', 'error');
+            }
+        }
+
+        document.getElementById('assignmentForm').addEventListener('submit', async event => {
+            event.preventDefault();
+
+            try {
+                const response = await fetch('./api/assignments.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        volunteer_id: document.getElementById('volunteerSelect').value,
+                        elderly_id: document.getElementById('elderlySelect').value
+                    })
+                });
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'לא הצלחנו לשמור את השיוך.');
+                }
+
+                showMessage(data.message || 'השיבוץ נשמר בהצלחה.', 'success');
+                await loadData();
+            } catch (error) {
+                console.error('ASSIGNMENT SAVE ERROR:', error);
+                showMessage(error.message || 'שגיאה בשמירת השיוך.', 'error');
+            }
+        });
+
+        window.addEventListener('hashchange', renderPage);
+        loadData();
+    </script>
+</body>
+</html>

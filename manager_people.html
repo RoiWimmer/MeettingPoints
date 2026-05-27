@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>נקודות חיבור - מתנדבים וקשישים</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="sidebar.css">
+    <link rel="stylesheet" href="help-tooltips.css">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Heebo:wght@500;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .people-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: flex-start;
+            margin-bottom: 24px;
+        }
+
+        .people-header h1 {
+            margin: 0 0 8px;
+            color: var(--dark-blue);
+            font-size: 2rem;
+            font-weight: 800;
+        }
+
+        .people-header p {
+            margin: 0;
+            color: var(--text-muted);
+            font-weight: 700;
+            line-height: 1.55;
+        }
+
+        .refresh-btn,
+        .primary-btn,
+        .ghost-btn {
+            border: 0;
+            border-radius: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 42px;
+            padding: 10px 16px;
+        }
+
+        .refresh-btn,
+        .ghost-btn {
+            background: white;
+            color: var(--primary-orange);
+            border: 1px solid #fed7aa;
+        }
+
+        .primary-btn {
+            background: var(--primary-orange);
+            color: white;
+        }
+
+        .primary-btn:disabled,
+        .ghost-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .people-message {
+            display: none;
+            margin-bottom: 18px;
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-weight: 800;
+            border: 1px solid #fed7aa;
+            background: #fff7ed;
+            color: #b45309;
+        }
+
+        .people-message.active {
+            display: block;
+        }
+
+        .people-message.success {
+            border-color: #a7f3d0;
+            background: #ecfdf5;
+            color: #047857;
+        }
+
+        .people-message.error {
+            border-color: #fecaca;
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .people-summary {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            padding: 17px 18px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+            min-height: 112px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .summary-card i {
+            color: var(--primary-orange);
+            font-size: 1.2rem;
+        }
+
+        .summary-card strong {
+            display: block;
+            color: var(--dark-blue);
+            font-size: 1.6rem;
+            line-height: 1;
+        }
+
+        .summary-card span {
+            color: var(--text-muted);
+            font-weight: 800;
+            line-height: 1.35;
+        }
+
+        .people-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 18px;
+        }
+
+        .people-panel {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+        }
+
+        .people-panel-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .people-panel.is-collapsed .people-panel-header {
+            margin-bottom: 0;
+        }
+
+        .people-panel-body {
+            display: block;
+        }
+
+        .people-panel.is-collapsed .people-panel-body {
+            display: none;
+        }
+
+        .people-panel h2 {
+            margin: 0;
+            color: var(--dark-blue);
+            font-size: 1.3rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+
+        .assignment-form {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .field {
+            display: grid;
+            gap: 7px;
+        }
+
+        .field label {
+            color: var(--text-muted);
+            font-weight: 800;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 1rem;
+            outline: none;
+            background: white;
+            color: #334155;
+            font-weight: 700;
+        }
+
+        .field input:focus,
+        .field select:focus {
+            border-color: #f1a340;
+            box-shadow: 0 0 0 3px rgba(241, 163, 64, 0.14);
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 840px;
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid #f1f5f9;
+            padding: 12px 10px;
+            text-align: right;
+            color: #334155;
+            font-weight: 700;
+            vertical-align: top;
+        }
+
+        th {
+            color: #64748b;
+            font-size: 0.88rem;
+            font-weight: 800;
+            background: #f8fafc;
+        }
+
+        tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .status-pill.active {
+            background: #ecfdf5;
+            color: #059669;
+        }
+
+        .status-pill.inactive {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        .muted {
+            color: #94a3b8;
+            font-weight: 800;
+        }
+
+        .collapse-btn {
+            width: 38px;
+            height: 38px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #ffffff;
+            color: var(--primary-orange);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        .collapse-btn:hover {
+            background: #fff7ed;
+            border-color: #fed7aa;
+        }
+
+        .people-panel.is-collapsed .collapse-btn i {
+            transform: rotate(180deg);
+        }
+
+        .collapse-btn i {
+            transition: transform 0.2s ease;
+        }
+
+        .note-cell {
+            max-width: 260px;
+            line-height: 1.45;
+        }
+
+        .empty-state {
+            color: var(--text-muted);
+            font-weight: 800;
+            padding: 16px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            background: #f8fafc;
+        }
+
+        @media (max-width: 1100px) {
+            .people-summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .assignment-form {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .main-content {
+                padding: 24px 18px;
+            }
+
+            .people-header,
+            .people-panel-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .people-summary {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body data-page="people">
+    <div class="dashboard-wrapper">
+        <aside class="sidebar" data-sidebar></aside>
+
+        <main class="main-content">
+            <header class="people-header">
+                <div>
+                    <h1>מתנדבים וקשישים</h1>
+                    <p>כאן ניתן לצפות במתנדבים ובקשישים של העמותה, ולנהל שיוך בין מתנדב לקשיש.</p>
+                </div>
+                <button type="button" class="refresh-btn" onclick="loadPeopleData()">
+                    <i class="fa-solid fa-rotate"></i>
+                    רענן
+                </button>
+            </header>
+
+            <div id="peopleMessage" class="people-message active">טוען נתונים...</div>
+
+            <section class="people-summary" aria-label="סיכום מתנדבים וקשישים">
+                <article class="summary-card">
+                    <i class="fa-solid fa-people-group"></i>
+                    <strong data-stat="activeVolunteers">0</strong>
+                    <span>סה"כ מתנדבים פעילים</span>
+                </article>
+                <article class="summary-card">
+                    <i class="fa-solid fa-person-cane"></i>
+                    <strong data-stat="elderlyInFollowup">0</strong>
+                    <span>סה"כ קשישים במעקב</span>
+                </article>
+                <article class="summary-card">
+                    <i class="fa-solid fa-link"></i>
+                    <strong data-stat="activeAssignments">0</strong>
+                    <span>שיוכים פעילים</span>
+                </article>
+                <article class="summary-card">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <strong data-stat="unassigned">0</strong>
+                    <span>קשישים ללא מתנדב / מתנדבים ללא קשיש</span>
+                </article>
+            </section>
+
+            <div class="people-grid">
+                <section class="people-panel">
+                    <div class="people-panel-header">
+                        <h2><i class="fa-solid fa-user-plus"></i> שיוך מתנדב לקשיש</h2>
+                    </div>
+                    <form class="assignment-form" id="assignmentForm">
+                        <div class="field">
+                            <label for="volunteerSearch">בחירת מתנדב</label>
+                            <input type="search" id="volunteerSearch" placeholder="חיפוש לפי שם, אימייל או עיר" oninput="renderAssignmentOptions()">
+                            <select id="volunteerSelect" required></select>
+                        </div>
+                        <div class="field">
+                            <label for="elderlySearch">בחירת קשיש</label>
+                            <input type="search" id="elderlySearch" placeholder="חיפוש לפי שם, עיר או כתובת" oninput="renderAssignmentOptions()">
+                            <select id="elderlySelect" required></select>
+                        </div>
+                        <button class="primary-btn" id="assignButton" type="submit">
+                            <i class="fa-solid fa-link"></i>
+                            שייך
+                        </button>
+                    </form>
+                </section>
+
+                <section class="people-panel" data-collapsible-panel="assignments">
+                    <div class="people-panel-header">
+                        <h2><i class="fa-solid fa-list-check"></i> שיוכים פעילים</h2>
+                        <button type="button" class="collapse-btn" onclick="togglePanel('assignments')" aria-label="מזער או הגדל טבלת שיוכים פעילים" aria-expanded="true" data-collapse-button="assignments">
+                            <i class="fa-solid fa-chevron-up"></i>
+                        </button>
+                    </div>
+                    <div class="people-panel-body">
+                        <div class="table-wrap" id="assignmentsTable"></div>
+                    </div>
+                </section>
+
+                <section class="people-panel" data-collapsible-panel="volunteers">
+                    <div class="people-panel-header">
+                        <h2><i class="fa-solid fa-people-group"></i> מתנדבים</h2>
+                        <button type="button" class="collapse-btn" onclick="togglePanel('volunteers')" aria-label="מזער או הגדל טבלת מתנדבים" aria-expanded="true" data-collapse-button="volunteers">
+                            <i class="fa-solid fa-chevron-up"></i>
+                        </button>
+                    </div>
+                    <div class="people-panel-body">
+                        <div class="table-wrap" id="volunteersTable"></div>
+                    </div>
+                </section>
+
+                <section class="people-panel" data-collapsible-panel="elderly">
+                    <div class="people-panel-header">
+                        <h2><i class="fa-solid fa-person-cane"></i> קשישים</h2>
+                        <button type="button" class="collapse-btn" onclick="togglePanel('elderly')" aria-label="מזער או הגדל טבלת קשישים" aria-expanded="true" data-collapse-button="elderly">
+                            <i class="fa-solid fa-chevron-up"></i>
+                        </button>
+                    </div>
+                    <div class="people-panel-body">
+                        <div class="table-wrap" id="elderlyTable"></div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <nav class="mobile-nav" data-mobile-nav></nav>
+    </div>
+
+    <script src="sidebar.js"></script>
+    <script src="help-tooltips.js"></script>
+    <script>
+        let peopleData = {
+            volunteers: [],
+            elderly: [],
+            assignments: [],
+            stats: {}
+        };
+        const collapsedPanels = new Set();
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function normalizeSearch(value) {
+            return String(value || '').trim().toLowerCase();
+        }
+
+        function fullName(row) {
+            return String(row.full_name || [row.first_name, row.last_name].filter(Boolean).join(' ') || `#${row.id || ''}`).trim();
+        }
+
+        function isActive(row) {
+            const volunteerActive = row.active === undefined || row.active === null || String(row.active) === '1';
+            const userActive = row.user_active === undefined || row.user_active === null || String(row.user_active) === '1';
+            return volunteerActive && userActive;
+        }
+
+        function healthNote(row) {
+            return [
+                row.health_conditions,
+                row.physical_limitations,
+                row.wheelchair ? 'כיסא גלגלים' : '',
+                row.dementia ? 'דמנציה' : ''
+            ].filter(Boolean).join(' | ');
+        }
+
+        function showMessage(message, type = 'info') {
+            const box = document.getElementById('peopleMessage');
+            box.textContent = message || '';
+            box.className = `people-message ${message ? 'active' : ''} ${type}`;
+        }
+
+        function formatNumber(value) {
+            return Number(value || 0).toLocaleString('he-IL');
+        }
+
+        function renderStats() {
+            const stats = peopleData.stats || {};
+            const unassigned = Number(stats.unassignedVolunteers || 0) + Number(stats.unassignedElderly || 0);
+
+            document.querySelector('[data-stat="activeVolunteers"]').textContent = formatNumber(stats.activeVolunteers);
+            document.querySelector('[data-stat="elderlyInFollowup"]').textContent = formatNumber(stats.elderlyInFollowup);
+            document.querySelector('[data-stat="activeAssignments"]').textContent = formatNumber(stats.activeAssignments);
+            document.querySelector('[data-stat="unassigned"]').textContent = formatNumber(unassigned);
+        }
+
+        function renderTable(targetId, columns, rows, emptyText) {
+            const target = document.getElementById(targetId);
+
+            if (!rows.length) {
+                target.innerHTML = `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
+                return;
+            }
+
+            target.innerHTML = `
+                <table>
+                    <thead>
+                        <tr>${columns.map(column => `<th>${escapeHtml(column.label)}</th>`).join('')}</tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(row => `
+                            <tr>
+                                ${columns.map(column => `<td class="${column.className || ''}">${column.value(row)}</td>`).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function renderVolunteersTable() {
+            renderTable('volunteersTable', [
+                { label: 'שם מלא', value: row => escapeHtml(fullName(row)) },
+                { label: 'אימייל', value: row => escapeHtml(row.email || '') },
+                { label: 'טלפון', value: row => escapeHtml(row.phone || '') },
+                { label: 'עיר', value: row => escapeHtml(row.city || '') },
+                { label: 'סוג ביקור', value: row => escapeHtml(row.visit_type || '') },
+                {
+                    label: 'סטטוס',
+                    value: row => `<span class="status-pill ${isActive(row) ? 'active' : 'inactive'}">${isActive(row) ? 'פעיל' : 'לא פעיל'}</span>`
+                },
+                {
+                    label: 'קשיש משויך',
+                    value: row => row.assigned_elderly_id
+                        ? escapeHtml(`${row.assigned_elderly_name || 'קשיש'} (#${row.assigned_elderly_id})`)
+                        : '<span class="muted">ללא שיוך</span>'
+                }
+            ], peopleData.volunteers || [], 'אין מתנדבים להצגה עבור העמותה המחוברת.');
+        }
+
+        function renderElderlyTable() {
+            renderTable('elderlyTable', [
+                { label: 'שם מלא', value: row => escapeHtml(fullName(row)) },
+                { label: 'עיר', value: row => escapeHtml(row.city || '') },
+                { label: 'כתובת', value: row => escapeHtml([row.address, row.apartment].filter(Boolean).join(', ')) },
+                { label: 'טלפון', value: row => escapeHtml(row.phone || '') },
+                { label: 'מצב בריאותי / הערה', className: 'note-cell', value: row => escapeHtml(healthNote(row) || '') },
+                {
+                    label: 'מתנדב משויך',
+                    value: row => row.assigned_volunteer_id
+                        ? escapeHtml(`${row.assigned_volunteer_name || 'מתנדב'} (#${row.assigned_volunteer_id})`)
+                        : '<span class="muted">ללא שיוך</span>'
+                }
+            ], peopleData.elderly || [], 'אין קשישים להצגה. קשישים מוצגים רק אם הם משויכים למתנדבי העמותה או מופיעים בדוחות של מתנדבי העמותה.');
+        }
+
+        function renderAssignmentsTable() {
+            renderTable('assignmentsTable', [
+                { label: 'מתנדב', value: row => escapeHtml(`${row.volunteer_name || 'מתנדב'} (#${row.volunteer_id})`) },
+                { label: 'קשיש', value: row => escapeHtml(`${row.elderly_name || 'קשיש'} (#${row.elderly_id})`) },
+                { label: 'עיר קשיש', value: row => escapeHtml(row.elderly_city || '') },
+                { label: 'תאריך התחלה', value: row => escapeHtml(row.start_date || row.created_at || '') },
+                {
+                    label: 'פעולה',
+                    value: row => `
+                        <button type="button" class="ghost-btn" onclick="unassign(${Number(row.id)})">
+                            <i class="fa-solid fa-link-slash"></i>
+                            בטל שיוך
+                        </button>
+                    `
+                }
+            ], peopleData.assignments || [], 'אין שיוכים פעילים להצגה.');
+        }
+
+        function optionText(row, kind) {
+            if (kind === 'volunteer') {
+                return `${fullName(row)} | ${row.email || ''} | ${row.city || ''} | #${row.id}`;
+            }
+
+            return `${fullName(row)} | ${row.city || ''} | ${row.address || ''} | #${row.id}`;
+        }
+
+        function renderAssignmentOptions() {
+            const volunteerSearch = normalizeSearch(document.getElementById('volunteerSearch').value);
+            const elderlySearch = normalizeSearch(document.getElementById('elderlySearch').value);
+            const unassignedVolunteers = (peopleData.volunteers || []).filter(row => !row.active_assignment_id);
+            const unassignedElderly = (peopleData.elderly || []).filter(row => !row.active_assignment_id);
+            const volunteers = unassignedVolunteers.filter(row => optionText(row, 'volunteer').toLowerCase().includes(volunteerSearch));
+            const elderly = unassignedElderly.filter(row => optionText(row, 'elderly').toLowerCase().includes(elderlySearch));
+            const volunteerSelect = document.getElementById('volunteerSelect');
+            const elderlySelect = document.getElementById('elderlySelect');
+
+            volunteerSelect.innerHTML = volunteers.length
+                ? volunteers.map(row => `<option value="${escapeHtml(row.id)}">${escapeHtml(optionText(row, 'volunteer'))}</option>`).join('')
+                : '<option value="">אין מתנדבים פנויים</option>';
+
+            elderlySelect.innerHTML = elderly.length
+                ? elderly.map(row => `<option value="${escapeHtml(row.id)}">${escapeHtml(optionText(row, 'elderly'))}</option>`).join('')
+                : '<option value="">אין קשישים פנויים</option>';
+
+            document.getElementById('assignButton').disabled = !volunteers.length || !elderly.length;
+        }
+
+        function renderPage() {
+            renderStats();
+            renderAssignmentOptions();
+            renderAssignmentsTable();
+            renderVolunteersTable();
+            renderElderlyTable();
+            applyPanelStates();
+            window.HiburimSidebar?.updateActive?.();
+        }
+
+        function applyPanelStates() {
+            document.querySelectorAll('[data-collapsible-panel]').forEach(panel => {
+                const panelId = panel.dataset.collapsiblePanel;
+                const collapsed = collapsedPanels.has(panelId);
+                const button = document.querySelector(`[data-collapse-button="${panelId}"]`);
+
+                panel.classList.toggle('is-collapsed', collapsed);
+
+                if (button) {
+                    button.setAttribute('aria-expanded', String(!collapsed));
+                    button.setAttribute('title', collapsed ? 'הגדל טבלה' : 'מזער טבלה');
+                }
+            });
+        }
+
+        function togglePanel(panelId) {
+            if (collapsedPanels.has(panelId)) {
+                collapsedPanels.delete(panelId);
+            } else {
+                collapsedPanels.add(panelId);
+            }
+
+            applyPanelStates();
+        }
+
+        async function loadPeopleData() {
+            showMessage('טוען נתונים...');
+
+            try {
+                const response = await fetch('./api/manager_people.php', { cache: 'no-store' });
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'לא הצלחנו לטעון נתונים.');
+                }
+
+                peopleData = {
+                    volunteers: data.volunteers || [],
+                    elderly: data.elderly || [],
+                    assignments: data.assignments || [],
+                    stats: data.stats || {}
+                };
+
+                renderPage();
+                showMessage('');
+            } catch (error) {
+                console.error('MANAGER PEOPLE LOAD ERROR:', error);
+                showMessage(error.message || 'שגיאה בטעינת הנתונים.', 'error');
+            }
+        }
+
+        document.getElementById('assignmentForm').addEventListener('submit', async event => {
+            event.preventDefault();
+
+            const volunteerId = document.getElementById('volunteerSelect').value;
+            const elderlyId = document.getElementById('elderlySelect').value;
+
+            if (!volunteerId || !elderlyId) {
+                showMessage('יש לבחור מתנדב וקשיש פנויים.', 'error');
+                return;
+            }
+
+            try {
+                showMessage('שומר שיוך...');
+                const response = await fetch('./api/manager_people.php?action=assign', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        volunteer_id: volunteerId,
+                        elderly_id: elderlyId
+                    })
+                });
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'לא הצלחנו לשמור את השיוך.');
+                }
+
+                document.getElementById('volunteerSearch').value = '';
+                document.getElementById('elderlySearch').value = '';
+                showMessage(data.message || 'השיוך נשמר בהצלחה.', 'success');
+                await loadPeopleData();
+            } catch (error) {
+                console.error('ASSIGN ERROR:', error);
+                showMessage(error.message || 'שגיאה בשמירת השיוך.', 'error');
+            }
+        });
+
+        async function unassign(assignmentId) {
+            if (!assignmentId) return;
+
+            try {
+                showMessage('מבטל שיוך...');
+                const response = await fetch('./api/manager_people.php?action=unassign', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ assignment_id: assignmentId })
+                });
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'לא הצלחנו לבטל את השיוך.');
+                }
+
+                showMessage(data.message || 'השיוך בוטל בהצלחה.', 'success');
+                await loadPeopleData();
+            } catch (error) {
+                console.error('UNASSIGN ERROR:', error);
+                showMessage(error.message || 'שגיאה בביטול השיוך.', 'error');
+            }
+        }
+
+        loadPeopleData();
+    </script>
+</body>
+</html>

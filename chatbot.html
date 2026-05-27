@@ -179,6 +179,11 @@
         return navigation && navigation.type === 'reload';
     }
 
+    function shouldStartNewReportFromMyElderly() {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('source') === 'my_elderly';
+    }
+
     function createConversationObject() {
         const timestamp = nowIso();
 
@@ -478,6 +483,11 @@
     function restoreActiveChat() {
         const storedConversation = loadActiveConversation();
 
+        if (shouldStartNewReportFromMyElderly()) {
+            createNewChat();
+            return;
+        }
+
         if (isPageReload()) {
             if (storedConversation && storedConversation.status === 'closed') {
                 saveConversationToHistory(storedConversation);
@@ -528,8 +538,20 @@
             appendMessage('bot', message, data.actions || []);
         }
 
-        if (data.conversation_status === 'closed' || data.disable_input === true) {
+        if (data.report_created === true && data.conversation_status === 'closed' && data.report_id) {
             closeCurrentChat(data.report_id || null);
+            return;
+        }
+
+        if (data.conversation_status === 'closed' || data.disable_input === true) {
+            if (window.activeConversation) {
+                window.activeConversation.status = 'closed';
+                window.activeConversation.report_created = false;
+                window.activeConversation.report_id = null;
+                persistActiveConversation();
+            }
+
+            lockChat(message || HISTORY_READONLY_MESSAGE);
             return;
         }
 

@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>נקודות חיבור - הקשיש שלי</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="sidebar.css">
+    <link rel="stylesheet" href="help-tooltips.css">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Heebo:wght@500;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        .my-elderly-header {
+            max-width: 900px;
+        }
+
+        .my-elderly-header h1 {
+            margin: 0 0 8px;
+            color: var(--dark-blue);
+            font-size: 2rem;
+            font-weight: 800;
+        }
+
+        .my-elderly-header p {
+            margin: 0;
+            color: var(--text-muted);
+            line-height: 1.6;
+            font-weight: 700;
+        }
+
+        .my-elderly-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+            gap: 20px;
+            align-items: start;
+        }
+
+        .my-elderly-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 22px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .my-elderly-card h2 {
+            margin: 0 0 16px;
+            color: var(--dark-blue);
+            font-size: 1.35rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .elderly-name {
+            margin: 0 0 18px;
+            color: var(--dark-blue);
+            font-size: 1.65rem;
+            font-weight: 800;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .detail-item {
+            background: #f8fafc;
+            border: 1px solid #eef2f7;
+            border-radius: 14px;
+            padding: 12px 14px;
+            min-width: 0;
+        }
+
+        .detail-item span {
+            display: block;
+            color: var(--text-muted);
+            font-weight: 800;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .detail-item strong {
+            display: block;
+            color: #334155;
+            font-weight: 800;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+
+        .important-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .important-item {
+            background: #f8fafc;
+            border: 1px solid #eef2f7;
+            border-radius: 14px;
+            padding: 14px;
+        }
+
+        .important-item span {
+            display: block;
+            color: var(--text-muted);
+            font-weight: 800;
+            margin-bottom: 6px;
+        }
+
+        .important-item strong {
+            color: #334155;
+            line-height: 1.55;
+            white-space: pre-line;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .quick-action {
+            border: 1px solid #fed7aa;
+            border-radius: 14px;
+            padding: 12px 14px;
+            background: #fff7ed;
+            color: var(--primary-orange);
+            font-weight: 800;
+            text-decoration: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            min-height: 48px;
+            transition: 0.2s ease;
+            text-align: center;
+        }
+
+        .quick-action:hover {
+            background: #ffedd5;
+            transform: translateY(-1px);
+        }
+
+        .quick-action.primary {
+            border-color: transparent;
+            background: var(--primary-orange);
+            color: white;
+        }
+
+        .quick-action.disabled {
+            pointer-events: none;
+            opacity: 0.55;
+        }
+
+        .reports-card {
+            margin-top: 20px;
+        }
+
+        .recent-reports {
+            display: grid;
+            gap: 12px;
+        }
+
+        .recent-report {
+            border: 1px solid #e2e8f0;
+            border-right: 5px solid var(--primary-orange);
+            border-radius: 16px;
+            padding: 14px;
+            background: #fff;
+        }
+
+        .recent-report-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+            color: var(--text-muted);
+            font-weight: 800;
+            font-size: 0.94rem;
+        }
+
+        .report-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .report-badge {
+            border-radius: 999px;
+            padding: 5px 10px;
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 800;
+            font-size: 0.88rem;
+        }
+
+        .report-badge.urgency {
+            background: #fff7ed;
+            color: #d97706;
+        }
+
+        .recent-report p {
+            margin: 0;
+            color: #334155;
+            line-height: 1.55;
+        }
+
+        .recent-empty {
+            color: var(--text-muted);
+            font-weight: 800;
+            padding: 14px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            background: #f8fafc;
+        }
+
+        .state-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 28px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            color: var(--text-muted);
+            font-weight: 800;
+            line-height: 1.7;
+        }
+
+        .state-card.error {
+            border-color: #fecaca;
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 1080px) {
+            .my-elderly-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .detail-grid,
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .recent-report-top {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body data-page="my-elderly">
+    <div class="dashboard-wrapper">
+        <aside class="sidebar" data-sidebar></aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="my-elderly-header">
+                    <h1>הקשיש שלי</h1>
+                    <p>כאן ניתן לראות את פרטי הקשיש המשויך אליך ולעדכן דיווחים במקרה הצורך.</p>
+                </div>
+            </header>
+
+            <div id="loadingState" class="state-card">טוען את פרטי הקשיש המשויך אליך...</div>
+
+            <div id="emptyState" class="state-card hidden">
+                עדיין לא שויך אליך קשיש. לאחר שמנהל העמותה ישייך אותך לקשיש, פרטיו יופיעו כאן.
+            </div>
+
+            <div id="errorState" class="state-card error hidden"></div>
+
+            <section id="elderlyContent" class="hidden" aria-live="polite">
+                <div class="my-elderly-layout">
+                    <div>
+                        <article class="my-elderly-card">
+                            <h2><i class="fa-solid fa-user"></i> פרטי קשיש</h2>
+                            <p class="elderly-name" id="elderlyName"></p>
+                            <div class="detail-grid" id="detailsGrid"></div>
+                        </article>
+
+                        <article class="my-elderly-card reports-card" id="reportsSection">
+                            <h2><i class="fa-solid fa-clock-rotate-left"></i> דיווחים אחרונים</h2>
+                            <div class="recent-reports" id="recentReports"></div>
+                        </article>
+                    </div>
+
+                    <div>
+                        <article class="my-elderly-card">
+                            <h2><i class="fa-solid fa-circle-exclamation"></i> מידע חשוב</h2>
+                            <div class="important-list" id="importantList"></div>
+                        </article>
+
+                        <article class="my-elderly-card reports-card">
+                            <h2><i class="fa-solid fa-bolt"></i> פעולות מהירות</h2>
+                            <div class="quick-actions">
+                                <a class="quick-action primary" href="chatbot.html?source=my_elderly" id="newReportAction">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                    <span>דווח על צורך חדש</span>
+                                </a>
+                                <button class="quick-action" type="button" id="previousReportsAction">
+                                    <i class="fa-solid fa-file-lines"></i>
+                                    <span>צפה בדיווחים קודמים</span>
+                                </button>
+                                <a class="quick-action" href="#" id="callAction">
+                                    <i class="fa-solid fa-phone"></i>
+                                    <span>צור קשר</span>
+                                </a>
+                                <a class="quick-action" href="#" id="addressAction" target="_blank" rel="noopener">
+                                    <i class="fa-solid fa-map-location-dot"></i>
+                                    <span>פתח כתובת</span>
+                                </a>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="sidebar.js"></script>
+    <script src="help-tooltips.js"></script>
+    <script>
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[char]));
+        }
+
+        function showOnly(stateId) {
+            ['loadingState', 'emptyState', 'errorState', 'elderlyContent'].forEach(id => {
+                document.getElementById(id).classList.toggle('hidden', id !== stateId);
+            });
+        }
+
+        function valueOrDash(value) {
+            const text = String(value ?? '').trim();
+            return text || 'לא צוין';
+        }
+
+        function yesNo(value) {
+            return value ? 'כן' : 'לא';
+        }
+
+        function formatDate(value) {
+            if (!value) return 'לא צוין';
+
+            const date = new Date(value);
+
+            if (Number.isNaN(date.getTime())) {
+                return valueOrDash(value);
+            }
+
+            return new Intl.DateTimeFormat('he-IL').format(date);
+        }
+
+        function approximateAge(birthYear) {
+            const year = Number(birthYear);
+            const currentYear = new Date().getFullYear();
+
+            if (!Number.isInteger(year) || year < 1900 || year > currentYear) {
+                return '';
+            }
+
+            return `גיל משוער ${currentYear - year}`;
+        }
+
+        function detailItem(label, value) {
+            return `
+                <div class="detail-item">
+                    <span>${escapeHtml(label)}</span>
+                    <strong>${escapeHtml(valueOrDash(value))}</strong>
+                </div>
+            `;
+        }
+
+        function importantItem(label, value) {
+            return `
+                <div class="important-item">
+                    <span>${escapeHtml(label)}</span>
+                    <strong>${escapeHtml(valueOrDash(value))}</strong>
+                </div>
+            `;
+        }
+
+        function summarizeReport(content) {
+            const text = String(content ?? '').replace(/\s+/g, ' ').trim();
+            if (!text) return 'אין תקציר זמין.';
+            return text.length > 150 ? `${text.slice(0, 150)}...` : text;
+        }
+
+        function renderReports(reports) {
+            const container = document.getElementById('recentReports');
+
+            if (!Array.isArray(reports) || !reports.length) {
+                container.innerHTML = '<div class="recent-empty">אין עדיין דיווחים עבור הקשיש הזה.</div>';
+                return;
+            }
+
+            container.innerHTML = reports.map(report => `
+                <article class="recent-report">
+                    <div class="recent-report-top">
+                        <span>${escapeHtml(formatDate(report.createdAt))}</span>
+                        <div class="report-badges">
+                            <span class="report-badge urgency">${escapeHtml(valueOrDash(report.urgency))}</span>
+                            <span class="report-badge">${escapeHtml(valueOrDash(report.status))}</span>
+                        </div>
+                    </div>
+                    <p>${escapeHtml(summarizeReport(report.content))}</p>
+                </article>
+            `).join('');
+        }
+
+        function configureActions(elderly) {
+            const callAction = document.getElementById('callAction');
+            const addressAction = document.getElementById('addressAction');
+            const reportsAction = document.getElementById('previousReportsAction');
+
+            const phone = String(elderly.phone ?? '').trim();
+            callAction.href = phone ? `tel:${phone}` : '#';
+            callAction.classList.toggle('disabled', !phone);
+
+            const addressParts = [elderly.address, elderly.apartment ? `דירה ${elderly.apartment}` : '', elderly.city]
+                .map(part => String(part ?? '').trim())
+                .filter(Boolean);
+
+            addressAction.href = addressParts.length
+                ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressParts.join(' '))}`
+                : '#';
+            addressAction.classList.toggle('disabled', !addressParts.length);
+
+            reportsAction.addEventListener('click', () => {
+                document.getElementById('reportsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        }
+
+        function renderPayload(payload) {
+            const elderly = payload.elderly;
+            const fullName = `${elderly.firstName || ''} ${elderly.lastName || ''}`.trim();
+            const birthText = elderly.birthYear
+                ? `${elderly.birthYear}${approximateAge(elderly.birthYear) ? ` / ${approximateAge(elderly.birthYear)}` : ''}`
+                : '';
+
+            document.getElementById('elderlyName').textContent = fullName || 'שם לא צוין';
+            document.getElementById('detailsGrid').innerHTML = [
+                detailItem('שם מלא', fullName),
+                detailItem('עיר', elderly.city),
+                detailItem('כתובת', elderly.address),
+                detailItem('דירה', elderly.apartment),
+                detailItem('טלפון', elderly.phone),
+                detailItem('איש קשר משפחתי', elderly.familyContact),
+                detailItem('שנת לידה / גיל משוער', birthText),
+                detailItem('מצב משפחתי', elderly.maritalStatus)
+            ].join('');
+
+            document.getElementById('importantList').innerHTML = [
+                importantItem('מצב בריאותי', elderly.healthConditions),
+                importantItem('מגבלות פיזיות', elderly.physicalLimitations),
+                importantItem('כיסא גלגלים', yesNo(elderly.wheelchair)),
+                importantItem('דמנציה', yesNo(elderly.dementia))
+            ].join('');
+
+            configureActions(elderly);
+            renderReports(payload.recentReports || []);
+            showOnly('elderlyContent');
+        }
+
+        async function loadMyElderly() {
+            showOnly('loadingState');
+
+            try {
+                const response = await fetch('./api/my_elderly.php', { cache: 'no-store' });
+                const payload = await response.json().catch(() => null);
+
+                if (!response.ok) {
+                    const message = payload?.message || 'אין לך הרשאה לצפות במסך זה.';
+                    document.getElementById('errorState').textContent = message;
+                    showOnly('errorState');
+                    return;
+                }
+
+                if (!payload?.hasAssignedElderly) {
+                    showOnly('emptyState');
+                    return;
+                }
+
+                renderPayload(payload);
+            } catch (error) {
+                document.getElementById('errorState').textContent = 'לא הצלחנו לטעון את פרטי הקשיש כרגע.';
+                showOnly('errorState');
+            }
+        }
+
+        loadMyElderly();
+    </script>
+</body>
+</html>
