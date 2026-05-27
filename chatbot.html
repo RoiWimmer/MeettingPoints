@@ -8,6 +8,95 @@
     <link rel="stylesheet" href="help-tooltips.css">
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Heebo:wght@500;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .chat-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .chat-action-btn {
+            border: 1px solid #fed7aa;
+            border-radius: 10px;
+            padding: 8px 12px;
+            background: #fff7ed;
+            color: var(--primary-orange);
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        .chat-action-btn:hover {
+            background: #ffedd5;
+        }
+
+        .chat-action-btn.primary {
+            border-color: transparent;
+            background: var(--primary-orange);
+            color: white;
+        }
+
+        .chat-action-btn.ghost {
+            border-color: #e2e8f0;
+            background: white;
+            color: #64748b;
+        }
+
+        .chat-action-btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        .conversation-ended {
+            margin: 0 20px 16px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: #fff7ed;
+            color: #d97706;
+            font-weight: 800;
+            border: 1px solid #fed7aa;
+            display: none;
+        }
+
+        .conversation-ended.active {
+            display: block;
+        }
+
+        .upload-btn.disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .chat-session-tools {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-start;
+            padding: 14px 20px 0;
+        }
+
+        .chat-session-btn {
+            border: 1px solid transparent;
+            border-radius: 10px;
+            padding: 8px 12px;
+            background: var(--primary-orange);
+            color: white;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        .chat-session-btn.secondary {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: var(--primary-orange);
+        }
+
+        .chat-session-btn:hover {
+            transform: translateY(-1px);
+        }
+    </style>
 </head>
 <body>
     <div class="dashboard-wrapper">
@@ -33,8 +122,12 @@
             </header>
 
             <div class="chat-window">
+                <div class="chat-session-tools">
+                    <button type="button" class="chat-session-btn" onclick="createNewChat()">צ׳אט חדש</button>
+                    <button type="button" class="chat-session-btn secondary" onclick="openLastConversation()">פתח שיחה אחרונה</button>
+                </div>
                 <div class="messages-area" id="chat">
-                    <div class="msg bot">שלום יוסי! מה זיהית בשטח אצל הקשיש?</div>
+                    <div class="msg bot">שלום, אני כאן כדי לעזור לך לפתוח דיווח על צורך או בעיה שזיהית אצל הקשיש. כתוב לי בקצרה מה קרה, ואני אשאל רק אם חסר מידע חשוב.</div>
                 </div>
                 <div class="chat-input">
                     <label for="imageUpload" class="upload-btn" title="העלה תמונה">
@@ -52,6 +145,9 @@
                     <span id="uploadFileName"></span>
                     <button type="button" class="remove-upload-btn" onclick="clearSelectedImage()">הסר</button>
                 </div>
+                <div class="conversation-ended" id="conversationEnded">
+                    השיחה הסתיימה לאחר יצירת הדיווח. כדי להמשיך יש לפתוח צ׳אט חדש.
+                </div>
             </div>
         </main>
     </div>
@@ -59,17 +155,111 @@
    <script src="sidebar.js"></script>
    <script src="help-tooltips.js"></script>
    <script>
+    window.isSending = false;
+    window.conversationClosed = false;
+    window.typingLoopController = null;
+    window.activeConversation = null;
 
-    function wait(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    const CHAT_OPENING_MESSAGE = 'שלום, אני כאן כדי לעזור לך לפתוח דיווח על צורך או בעיה שזיהית אצל הקשיש. כתוב לי בקצרה מה קרה, ואני אשאל רק אם חסר מידע חשוב.';
+    const ACTIVE_CONVERSATION_KEY = 'mp_activeConversation';
+    const CONVERSATIONS_HISTORY_KEY = 'mp_conversationsHistory';
+    const CHAT_ENDED_MESSAGE = 'השיחה הסתיימה לאחר יצירת הדיווח. כדי להמשיך יש לפתוח צ׳אט חדש.';
+    const HISTORY_READONLY_MESSAGE = 'זוהי שיחה שהסתיימה. כדי לשלוח דיווח נוסף יש לפתוח צ׳אט חדש.';
+
+    function generateConversationId() {
+        return `chat_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     }
 
-    function randomDelay(min = 4000, max = 8000) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
+    function nowIso() {
+        return new Date().toISOString();
     }
 
-    function wait(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    function isPageReload() {
+        const navigation = performance.getEntriesByType('navigation')[0];
+        return navigation && navigation.type === 'reload';
+    }
+
+    function createConversationObject() {
+        const timestamp = nowIso();
+
+        return {
+            conversation_id: generateConversationId(),
+            status: 'open',
+            messages: [
+                {
+                    type: 'bot',
+                    text: CHAT_OPENING_MESSAGE,
+                    actions: []
+                }
+            ],
+            created_at: timestamp,
+            updated_at: timestamp,
+            report_created: false,
+            report_id: null
+        };
+    }
+
+    function loadActiveConversation() {
+        try {
+            const raw = sessionStorage.getItem(ACTIVE_CONVERSATION_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch (error) {
+            console.error('ACTIVE CONVERSATION LOAD ERROR:', error);
+            return null;
+        }
+    }
+
+    function saveActiveConversation() {
+        if (!window.activeConversation) return;
+
+        window.activeConversation.updated_at = nowIso();
+
+        try {
+            sessionStorage.setItem(ACTIVE_CONVERSATION_KEY, JSON.stringify(window.activeConversation));
+        } catch (error) {
+            console.error('ACTIVE CONVERSATION SAVE ERROR:', error);
+        }
+    }
+
+    function loadConversationsHistory() {
+        try {
+            const raw = localStorage.getItem(CONVERSATIONS_HISTORY_KEY);
+            const history = raw ? JSON.parse(raw) : [];
+            return Array.isArray(history) ? history : [];
+        } catch (error) {
+            console.error('CONVERSATION HISTORY LOAD ERROR:', error);
+            return [];
+        }
+    }
+
+    function saveConversationsHistory(history) {
+        try {
+            localStorage.setItem(CONVERSATIONS_HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
+        } catch (error) {
+            console.error('CONVERSATION HISTORY SAVE ERROR:', error);
+        }
+    }
+
+    function saveConversationToHistory(conversation = window.activeConversation) {
+        if (!conversation || !conversation.conversation_id) return;
+
+        const history = loadConversationsHistory()
+            .filter(item => item.conversation_id !== conversation.conversation_id);
+
+        history.unshift({
+            ...conversation,
+            updated_at: nowIso()
+        });
+
+        saveConversationsHistory(history);
+    }
+
+    function persistActiveConversation() {
+        saveActiveConversation();
+
+        if (window.activeConversation && window.activeConversation.status === 'closed') {
+            saveConversationToHistory(window.activeConversation);
+        }
     }
 
     function addTypingIndicator(chat) {
@@ -97,195 +287,387 @@
         }
     }
 
-    function startTypingSimulation(chat, totalExpectedWait) {
+    function startTypingLoop() {
+        if (window.typingLoopController) {
+            return window.typingLoopController;
+        }
+
+        const { chat } = getElements();
         const timers = [];
-        let stopped = false;
+        let active = true;
 
-        const initialDelay = randomDelay(500, 1600);
-        const mustPause = totalExpectedWait > 10000;
-        const shouldShowAtAll = mustPause || Math.random() < 0.75;
-        const shouldDoPause = mustPause || Math.random() < 0.5;
-
-        const showIndicator = () => {
-            if (stopped) return;
+        const show = () => {
+            if (!active) return;
             addTypingIndicator(chat);
         };
 
-        const hideIndicator = () => {
-            if (stopped) return;
+        const hide = () => {
             removeTypingIndicator();
         };
 
-        if (shouldShowAtAll) {
-            timers.push(setTimeout(showIndicator, initialDelay));
-        }
-
-        if (shouldShowAtAll && shouldDoPause) {
-            const latestPauseStart = Math.max(2500, totalExpectedWait - 2500);
-            const pauseStart = randomDelay(3000, latestPauseStart);
+        const cycle = () => {
+            if (!active) return;
+            show();
 
             timers.push(setTimeout(() => {
-                hideIndicator();
+                if (!active) return;
+                hide();
 
                 timers.push(setTimeout(() => {
-                    showIndicator();
-                }, 1000));
-            }, pauseStart));
-        }
+                    cycle();
+                }, randomDelay(500, 900)));
+            }, randomDelay(6500, 7600)));
+        };
 
-        return {
+        cycle();
+
+        window.typingLoopController = {
             stop() {
-                stopped = true;
+                active = false;
                 timers.forEach(clearTimeout);
                 removeTypingIndicator();
+                window.typingLoopController = null;
             }
+        };
+
+        return window.typingLoopController;
+    }
+
+    function stopTypingLoop() {
+        if (window.typingLoopController) {
+            window.typingLoopController.stop();
+            return;
+        }
+
+        removeTypingIndicator();
+    }
+
+    function randomDelay(min = 500, max = 1100) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function getElements() {
+        return {
+            input: document.getElementById('textIn'),
+            chat: document.getElementById('chat'),
+            sendButton: document.querySelector('.send-btn'),
+            imageInput: document.getElementById('imageUpload'),
+            uploadButton: document.querySelector('.upload-btn'),
+            endedNotice: document.getElementById('conversationEnded')
         };
     }
 
-    async function send() {
-        console.log("SEND CALLED", new Date().toISOString());
-        
-        if (window.isSending) {
-            console.log("BLOCKED DUPLICATE SEND");
+    function appendMessage(type, text, actions = [], options = {}) {
+        const { chat } = getElements();
+        const messageEl = document.createElement('div');
+        messageEl.className = `msg ${type}`;
+        messageEl.textContent = text;
+
+        if (actions && actions.length) {
+            const actionsEl = document.createElement('div');
+            actionsEl.className = 'chat-actions';
+
+            actions.forEach(action => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `chat-action-btn ${action.variant || 'secondary'}`;
+                btn.textContent = action.label;
+                btn.addEventListener('click', () => sendAction(action.action, action.label));
+                actionsEl.appendChild(btn);
+            });
+
+            messageEl.appendChild(actionsEl);
+        }
+
+        chat.appendChild(messageEl);
+        chat.scrollTop = chat.scrollHeight;
+
+        if (options.persist !== false && window.activeConversation) {
+            window.activeConversation.messages.push({
+                type,
+                text,
+                actions: actions || []
+            });
+
+            persistActiveConversation();
+        }
+    }
+
+    function setInputDisabled(disabled) {
+        const { input, sendButton, imageInput, uploadButton } = getElements();
+        input.disabled = disabled;
+        sendButton.disabled = disabled;
+        imageInput.disabled = disabled;
+        uploadButton.classList.toggle('disabled', disabled);
+    }
+
+    function lockChat(reason = CHAT_ENDED_MESSAGE) {
+        const { input, sendButton, imageInput, uploadButton, endedNotice } = getElements();
+        window.conversationClosed = true;
+        input.value = '';
+        input.disabled = true;
+        sendButton.disabled = true;
+        imageInput.disabled = true;
+        uploadButton.classList.add('disabled');
+        clearSelectedImage();
+        endedNotice.textContent = reason;
+        endedNotice.classList.add('active');
+    }
+
+    function unlockChat() {
+        const { input, sendButton, imageInput, uploadButton, endedNotice } = getElements();
+        window.conversationClosed = false;
+        input.disabled = false;
+        sendButton.disabled = false;
+        imageInput.disabled = false;
+        uploadButton.classList.remove('disabled');
+        endedNotice.classList.remove('active');
+    }
+
+    function lockConversation() {
+        lockChat(CHAT_ENDED_MESSAGE);
+    }
+
+    function closeCurrentChat(reportId = null) {
+        if (!window.activeConversation) return;
+
+        window.activeConversation.status = 'closed';
+        window.activeConversation.report_created = true;
+        window.activeConversation.report_id = reportId || window.activeConversation.report_id || null;
+        persistActiveConversation();
+        lockChat(CHAT_ENDED_MESSAGE);
+    }
+
+    function renderConversation(conversation) {
+        const { chat } = getElements();
+        window.activeConversation = conversation;
+        chat.innerHTML = '';
+        clearSelectedImage();
+
+        const isClosed = conversation.status === 'closed';
+        const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+
+        messages.forEach(message => {
+            appendMessage(
+                message.type || 'bot',
+                message.text || '',
+                isClosed ? [] : (message.actions || []),
+                { persist: false }
+            );
+        });
+
+        if (isClosed) {
+            lockChat(conversation.report_created ? CHAT_ENDED_MESSAGE : HISTORY_READONLY_MESSAGE);
+        } else {
+            unlockChat();
+        }
+
+        saveActiveConversation();
+    }
+
+    function createNewChat() {
+        if (window.isSending) return;
+
+        stopTypingLoop();
+        window.isSending = false;
+        renderConversation(createConversationObject());
+        persistActiveConversation();
+        getElements().input.focus();
+    }
+
+    function restoreActiveChat() {
+        const storedConversation = loadActiveConversation();
+
+        if (isPageReload()) {
+            if (storedConversation && storedConversation.status === 'closed') {
+                saveConversationToHistory(storedConversation);
+            }
+
+            createNewChat();
             return;
         }
+
+        if (storedConversation && storedConversation.conversation_id) {
+            renderConversation(storedConversation);
+            return;
+        }
+
+        createNewChat();
+    }
+
+    function openLastConversation() {
+        if (window.isSending) return;
+
+        const history = loadConversationsHistory();
+
+        if (!history.length) {
+            appendMessage('bot', 'אין עדיין שיחות קודמות להצגה.');
+            return;
+        }
+
+        const conversation = {
+            ...history[0],
+            status: history[0].status || 'closed'
+        };
+
+        renderConversation(conversation);
+
+        if (conversation.status === 'closed') {
+            lockChat(HISTORY_READONLY_MESSAGE);
+        }
+    }
+
+    function applyServerState(data) {
+        if (data.conversation_id && window.activeConversation) {
+            window.activeConversation.conversation_id = data.conversation_id;
+        }
+
+        const message = data.assistant_message || data.reply || '';
+
+        if (message) {
+            appendMessage('bot', message, data.actions || []);
+        }
+
+        if (data.conversation_status === 'closed' || data.disable_input === true) {
+            closeCurrentChat(data.report_id || null);
+            return;
+        }
+
+        if (window.activeConversation) {
+            window.activeConversation.status = 'open';
+            window.activeConversation.report_created = false;
+            persistActiveConversation();
+        }
+
+        unlockChat();
+    }
+
+    async function postToServer(formData) {
+        const res = await fetch('./api/chat.php', {
+            method: 'POST',
+            body: formData
+        });
+
+        const rawText = await res.text();
+        let data;
+
+        try {
+            data = JSON.parse(rawText);
+        } catch (e) {
+            console.error('INVALID CHAT RESPONSE:', rawText);
+            throw new Error('לא הצלחנו לקבל תשובה כרגע. אפשר לנסות שוב בעוד רגע.');
+        }
+
+        if (data && data.success === false && !data.assistant_message && !data.reply) {
+            data.assistant_message = 'לא הצלחנו לקבל תשובה כרגע. אפשר לנסות שוב בעוד רגע.';
+        }
+
+        if (!res.ok) {
+            if (data.assistant_message || data.reply) {
+                return data;
+            }
+
+            console.error('CHAT SERVER ERROR:', data);
+            throw new Error('לא הצלחנו לקבל תשובה כרגע. אפשר לנסות שוב בעוד רגע.');
+        }
+
+        return data;
+    }
+
+    async function sendAction(action, label) {
+        if (window.conversationClosed || window.isSending) return;
+        if (!window.activeConversation) createNewChat();
+
+        document.querySelectorAll('.chat-action-btn').forEach(btn => {
+            btn.disabled = true;
+        });
+
+        appendMessage('user', label);
+        window.isSending = true;
+        setInputDisabled(true);
+
+        startTypingLoop();
+
+        try {
+            const formData = new FormData();
+            formData.append('conversation_id', window.activeConversation.conversation_id);
+            formData.append('action', action);
+            const data = await postToServer(formData);
+            stopTypingLoop();
+            applyServerState(data);
+        } catch (error) {
+            console.error('CHAT ACTION ERROR:', error);
+            stopTypingLoop();
+            appendMessage('bot', error.message || 'לא הצלחנו ליצור את הדיווח כרגע. אפשר לנסות שוב בעוד רגע.');
+            setInputDisabled(false);
+        } finally {
+            window.isSending = false;
+            if (!window.conversationClosed) {
+                setInputDisabled(false);
+                getElements().input.focus();
+            }
+        }
+    }
+
+    async function send() {
+        if (window.conversationClosed || window.isSending) {
+            return;
+        }
+
+        if (!window.activeConversation) {
+            createNewChat();
+        }
+
         window.isSending = true;
         const input = document.getElementById('textIn');
         const chat = document.getElementById('chat');
-        const button = document.querySelector('.chat-input button');
         const imageInput = document.getElementById('imageUpload');
         const selectedImage = imageInput.files[0];
         const val = input.value.trim();
 
-        if (!val && !selectedImage) return;
+        if (!val && !selectedImage) {
+            window.isSending = false;
+            return;
+        }
 
         if (val) {
-            chat.innerHTML += `<div class="msg user">${escapeHtml(val)}</div>`;
+            appendMessage('user', val);
         }
 
         if (selectedImage) {
-            chat.innerHTML += `<div class="msg user attachment-msg">📎 תמונה צורפה: ${escapeHtml(selectedImage.name)}</div>`;
+            appendMessage('user attachment-msg', `📎 תמונה צורפה: ${selectedImage.name}`);
         }
 
         input.value = '';
         chat.scrollTop = chat.scrollHeight;
-
-        input.disabled = true;
-        button.disabled = true;
-
-        const fakeDelay = randomDelay(7000, 15000);
-        const typingController = startTypingSimulation(chat, fakeDelay);
-        const requestStartedAt = Date.now();
+        setInputDisabled(true);
 
         try {
-            console.log("SENDING REQUEST TO SERVER");
-
             const formData = new FormData();
+            formData.append('conversation_id', window.activeConversation.conversation_id);
             formData.append('message', val);
 
             if (selectedImage) {
                 formData.append('image', selectedImage);
             }
-            console.log("SENDING REQUEST TO SERVER");   
-            const res = await fetch('./api/chat.php', {
-                method: 'POST',
-                body: formData
-            });
 
-            console.log("RESPONSE RECEIVED");
-
-            const rawText = await res.text();
-            console.log('RAW RESPONSE:', rawText);
-
-            let data;
-            try {
-                data = JSON.parse(rawText);
-            } catch (e) {
-                throw new Error('השרת לא החזיר JSON תקין: ' + rawText);
-            }
-
-            if (!res.ok) {
-                throw new Error(data.error || 'שגיאה בבקשה לשרת');
-            }
-
-            const elapsed = Date.now() - requestStartedAt;
-            const remainingDelay = Math.max(0, fakeDelay - elapsed);
-            await wait(remainingDelay);
-
-            typingController.stop();
-
-            if (data.reply) {
-                chat.innerHTML += `<div class="msg bot">${escapeHtml(data.reply)}</div>`;
-            } else {
-                chat.innerHTML += `<div class="msg bot">לא התקבלה תשובה תקינה מהשרת.</div>`;
-            }
+            startTypingLoop();
+            const data = await postToServer(formData);
+            stopTypingLoop();
+            applyServerState(data);
 
         } catch (error) {
             console.error('CHAT ERROR:', error);
-
-            const elapsed = Date.now() - requestStartedAt;
-            const remainingDelay = Math.max(0, fakeDelay - elapsed);
-            await wait(remainingDelay);
-
-            typingController.stop();
-            chat.innerHTML += `<div class="msg bot">שגיאה: ${escapeHtml(error.message)}</div>`;
+            stopTypingLoop();
+            appendMessage('bot', error.message || 'לא הצלחנו ליצור את הדיווח כרגע. אפשר לנסות שוב בעוד רגע.');
         } finally {
             window.isSending = false;
-            input.disabled = false;
-            button.disabled = false;
             clearSelectedImage();
-            input.focus();
-            chat.scrollTop = chat.scrollHeight;
+            if (!window.conversationClosed) {
+                setInputDisabled(false);
+                input.focus();
+            }
         }
-    }
-
-    document.getElementById('textIn').addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            send();
-        }
-    });
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    function clearSelectedImage() {
-        const imageInput = document.getElementById('imageUpload');
-        const uploadPreview = document.getElementById('uploadPreview');
-        const uploadFileName = document.getElementById('uploadFileName');
-
-        imageInput.value = '';
-        uploadFileName.textContent = '';
-        uploadPreview.style.display = 'none';
-    }
-
-    document.getElementById('imageUpload').addEventListener('change', function () {
-        const uploadPreview = document.getElementById('uploadPreview');
-        const uploadFileName = document.getElementById('uploadFileName');
-
-        if (this.files && this.files[0]) {
-            uploadFileName.textContent = 'נבחר קובץ: ' + this.files[0].name;
-            uploadPreview.style.display = 'flex';
-        } else {
-            uploadFileName.textContent = '';
-            uploadPreview.style.display = 'none';
-        }
-    });
-
-    document.getElementById('textIn').addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            send();
-        }
-    });
-    
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
     
     function clearSelectedImage() {
@@ -299,6 +681,11 @@
     }
     
     document.getElementById('imageUpload').addEventListener('change', function () {
+        if (window.conversationClosed || window.isSending) {
+            clearSelectedImage();
+            return;
+        }
+
         const uploadPreview = document.getElementById('uploadPreview');
         const uploadFileName = document.getElementById('uploadFileName');
     
@@ -310,6 +697,18 @@
             uploadPreview.style.display = 'none';
         }
     });
+
+    document.getElementById('textIn').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (!window.conversationClosed && !window.isSending) {
+                send();
+            }
+        }
+    });
+
+    window.addEventListener('beforeunload', persistActiveConversation);
+    restoreActiveChat();
 </script>
 </body>
 </html>

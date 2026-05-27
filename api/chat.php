@@ -67,8 +67,135 @@ function envValue($key, $default = null) {
     return $default;
 }
 
-function callGemini($apiKey, $parts, $systemInstruction = null, $timeout = 60) {
-    $modelName = "gemini-3-flash-preview";
+function getModelFallbackChain() {
+    return [
+        [
+            "name" => "Gemini 3 Flash",
+            "model" => envValue("GEMINI_MODEL_GEMINI_3_FLASH", "gemini-3-flash-preview"),
+            "supports_images" => true
+        ],
+        [
+            "name" => "Gemini 3.1 Flash Lite",
+            "model" => envValue("GEMINI_MODEL_GEMINI_3_1_FLASH_LITE", "gemini-3.1-flash-lite"),
+            "supports_images" => true
+        ],
+        [
+            "name" => "Gemini 2.5 Flash",
+            "model" => envValue("GEMINI_MODEL_GEMINI_2_5_FLASH", "gemini-2.5-flash"),
+            "supports_images" => true
+        ],
+        [
+            "name" => "Gemini 2.5 Flash Lite",
+            "model" => envValue("GEMINI_MODEL_GEMINI_2_5_FLASH_LITE", "gemini-2.5-flash-lite"),
+            "supports_images" => true
+        ],
+        [
+            "name" => "Gemma 4 31B",
+            "model" => envValue("GEMINI_MODEL_GEMMA_4_31B", ""),
+            "supports_images" => false
+        ],
+        [
+            "name" => "Gemma 4 26B",
+            "model" => envValue("GEMINI_MODEL_GEMMA_4_26B", ""),
+            "supports_images" => false
+        ]
+    ];
+}
+
+function requestContainsImage($parts) {
+    foreach ($parts as $part) {
+        if (!is_array($part)) {
+            continue;
+        }
+
+        if (isset($part["inline_data"]) || isset($part["file_data"])) {
+            return true;
+        }
+
+        foreach ($part as $value) {
+            if (is_array($value) && requestContainsImage([$value])) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+function parseHttpStatus($headers) {
+    $status = null;
+
+    if (!is_array($headers)) {
+        return null;
+    }
+
+    foreach ($headers as $header) {
+        if (preg_match('/HTTP\/\S+\s+(\d+)/', $header, $matches)) {
+            $status = (int)$matches[1];
+        }
+    }
+
+    return $status;
+}
+
+function normalizeGeminiApiError($response, $statusCode, $raw = "") {
+    $error = $response["error"] ?? [];
+    $message = $error["message"] ?? "Gemini API error";
+    $code = $error["code"] ?? $statusCode;
+    $status = $error["status"] ?? "";
+
+    return [
+        "reason" => "api_error",
+        "http_status" => $statusCode ?: (is_numeric($code) ? (int)$code : null),
+        "api_status" => $status,
+        "message" => $message,
+        "raw" => $raw
+    ];
+}
+
+function shouldStopFallback($error) {
+    $message = strtolower($error["message"] ?? "");
+    $status = (int)($error["http_status"] ?? 0);
+    $apiStatus = strtoupper($error["api_status"] ?? "");
+    $reason = $error["reason"] ?? "";
+
+    if ($reason === "safety_block") {
+        return true;
+    }
+
+    if (in_array($status, [400, 401, 403], true) && !preg_match('/quota|rate limit|overloaded|unavailable|temporar/i', $message)) {
+        return true;
+    }
+
+    if (in_array($apiStatus, ["UNAUTHENTICATED", "PERMISSION_DENIED", "FAILED_PRECONDITION"], true)) {
+        return true;
+    }
+
+    return preg_match('/api key|permission|forbidden|unauthorized|blocked|safety|policy|invalid key/i', $message) === 1;
+}
+
+function shouldFallback($error) {
+    if (shouldStopFallback($error)) {
+        return false;
+    }
+
+    $status = (int)($error["http_status"] ?? 0);
+    $reason = $error["reason"] ?? "";
+    $message = $error["message"] ?? "";
+
+    if (in_array($status, [404, 408, 429, 500, 502, 503, 504], true)) {
+        return true;
+    }
+
+    if (in_array($reason, ["transport_error", "timeout", "empty_response", "invalid_api_json", "empty_model_response"], true)) {
+        return true;
+    }
+
+    return preg_match('/quota exceeded|quota|rate limit|overloaded|unavailable|timeout|temporar|try again|model.*not found|not found/i', $message) === 1;
+}
+
+function invokeGeminiModel($apiKey, $parts, $systemInstruction, $timeout, $modelConfig) {
+    $modelName = $modelConfig["model"];
     $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent?key=" . urlencode($apiKey);
 
     $payload = [
@@ -98,44 +225,177 @@ function callGemini($apiKey, $parts, $systemInstruction = null, $timeout = 60) {
     ];
 
     $context = stream_context_create($options);
-    error_log("GEMINI DEBUG: calling API");
-
     $result = @file_get_contents($url, false, $context);
+    $headers = isset($http_response_header) ? $http_response_header : [];
+    $httpStatus = parseHttpStatus($headers);
 
     if ($result === false) {
-        jsonResponse(["error" => "Request to Gemini failed"], 500);
+        $lastError = error_get_last();
+        $message = $lastError["message"] ?? "Request to Gemini failed";
+
+        return [
+            "ok" => false,
+            "error" => [
+                "reason" => stripos($message, "timed out") !== false ? "timeout" : "transport_error",
+                "http_status" => $httpStatus,
+                "message" => $message
+            ]
+        ];
+    }
+
+    if (trim($result) === "") {
+        return [
+            "ok" => false,
+            "error" => [
+                "reason" => "empty_response",
+                "http_status" => $httpStatus,
+                "message" => "Gemini returned an empty response"
+            ]
+        ];
     }
 
     $response = json_decode($result, true);
 
     if (!is_array($response)) {
-        jsonResponse([
-            "error" => "Gemini did not return valid JSON",
-            "raw" => $result
-        ], 500);
+        return [
+            "ok" => false,
+            "error" => [
+                "reason" => "invalid_api_json",
+                "http_status" => $httpStatus,
+                "message" => "Gemini did not return valid JSON",
+                "raw" => substr($result, 0, 500)
+            ]
+        ];
     }
 
     if (isset($response["error"])) {
-        $msg = isset($response["error"]["message"]) ? $response["error"]["message"] : "Gemini API error";
+        return [
+            "ok" => false,
+            "error" => normalizeGeminiApiError($response, $httpStatus, substr($result, 0, 500))
+        ];
+    }
 
-        jsonResponse([
-            "error" => $msg,
-            "details" => $response
-        ], 500);
+    $promptBlockReason = $response["promptFeedback"]["blockReason"] ?? null;
+    $finishReason = $response["candidates"][0]["finishReason"] ?? null;
+
+    if ($promptBlockReason || $finishReason === "SAFETY") {
+        return [
+            "ok" => false,
+            "error" => [
+                "reason" => "safety_block",
+                "http_status" => $httpStatus,
+                "message" => "Gemini response was blocked by safety policy"
+            ]
+        ];
     }
 
     $replyText = $response["candidates"][0]["content"]["parts"][0]["text"] ?? null;
 
-    if (!$replyText) {
-        jsonResponse([
-            "error" => "No reply returned from Gemini",
-            "details" => $response
-        ], 500);
+    if (!$replyText || trim($replyText) === "") {
+        return [
+            "ok" => false,
+            "error" => [
+                "reason" => "empty_model_response",
+                "http_status" => $httpStatus,
+                "message" => "No reply returned from Gemini"
+            ]
+        ];
     }
 
-    error_log("GEMINI DEBUG RESPONSE: " . $replyText);
+    return [
+        "ok" => true,
+        "text" => trim($replyText)
+    ];
+}
 
-    return $replyText;
+function friendlyGeminiFailureResponse($errorCode = "all_models_failed") {
+    $conversationId = $GLOBALS["currentConversationId"] ?? null;
+
+    jsonResponse([
+        "success" => false,
+        "reply" => "לא הצלחנו לקבל תשובה כרגע. אפשר לנסות שוב בעוד רגע.",
+        "assistant_message" => "לא הצלחנו לקבל תשובה כרגע. אפשר לנסות שוב בעוד רגע.",
+        "error" => $errorCode,
+        "conversation_id" => $conversationId,
+        "used_model" => null,
+        "fallback_used" => true,
+        "conversation_status" => "open",
+        "disable_input" => false,
+        "report_created" => false
+    ]);
+}
+
+function callGemini($apiKey, $parts, $systemInstruction = null, $timeout = 60) {
+    $requiresImageSupport = requestContainsImage($parts);
+    $allModels = getModelFallbackChain();
+    $eligibleModels = [];
+
+    foreach ($allModels as $modelConfig) {
+        if (trim($modelConfig["model"] ?? "") === "") {
+            error_log("GEMINI FALLBACK: skipping " . $modelConfig["name"] . "; model id is not configured");
+            continue;
+        }
+
+        if ($requiresImageSupport && empty($modelConfig["supports_images"])) {
+            error_log("GEMINI FALLBACK: skipping " . $modelConfig["name"] . "; image request is not supported by this model");
+            continue;
+        }
+
+        $eligibleModels[] = $modelConfig;
+    }
+
+    if (empty($eligibleModels)) {
+        error_log("GEMINI FALLBACK: no eligible models configured");
+        friendlyGeminiFailureResponse("no_eligible_models");
+    }
+
+    $firstModel = $eligibleModels[0];
+    $fallbackUsed = false;
+    $attemptNumber = 0;
+
+    foreach ($eligibleModels as $modelConfig) {
+        $attemptNumber++;
+        error_log("GEMINI FALLBACK: trying " . $modelConfig["name"] . " (" . $modelConfig["model"] . "), attempt " . $attemptNumber);
+
+        $result = invokeGeminiModel($apiKey, $parts, $systemInstruction, $timeout, $modelConfig);
+
+        if (!empty($result["ok"])) {
+            $GLOBALS["lastGeminiModelMeta"] = [
+                "used_model" => $modelConfig["name"],
+                "fallback_used" => $fallbackUsed || $attemptNumber > 1
+            ];
+            error_log("GEMINI FALLBACK: success with " . $modelConfig["name"]);
+            return $result["text"];
+        }
+
+        $error = $result["error"] ?? ["message" => "Unknown Gemini error"];
+        $statusText = isset($error["http_status"]) ? " HTTP " . $error["http_status"] : "";
+        error_log("GEMINI FALLBACK: " . $modelConfig["name"] . " failed" . $statusText . ": " . ($error["message"] ?? "Unknown error"));
+
+        if (!shouldFallback($error)) {
+            error_log("GEMINI FALLBACK: stopping without fallback due to non-transient error");
+            friendlyGeminiFailureResponse("gemini_request_failed");
+        }
+
+        $fallbackUsed = true;
+        error_log("GEMINI FALLBACK: falling back to next model");
+    }
+
+    error_log("GEMINI FALLBACK: all eligible models failed; final retry with " . $firstModel["name"]);
+    $finalResult = invokeGeminiModel($apiKey, $parts, $systemInstruction, $timeout, $firstModel);
+
+    if (!empty($finalResult["ok"])) {
+        $GLOBALS["lastGeminiModelMeta"] = [
+            "used_model" => $firstModel["name"],
+            "fallback_used" => true
+        ];
+        error_log("GEMINI FALLBACK: final retry succeeded with " . $firstModel["name"]);
+        return $finalResult["text"];
+    }
+
+    $finalError = $finalResult["error"] ?? ["message" => "Unknown Gemini error"];
+    error_log("GEMINI FALLBACK: final retry failed: " . ($finalError["message"] ?? "Unknown error"));
+    friendlyGeminiFailureResponse("all_models_failed");
 }
 
 function parseJsonFromAi($text, $errorTitle = "Failed to parse AI JSON") {
@@ -157,46 +417,295 @@ function parseJsonFromAi($text, $errorTitle = "Failed to parse AI JSON") {
     return $parsed;
 }
 
-function cleanImageAssessment($text) {
-    $text = trim($text);
-
-    $text = preg_replace('/\s*האם זו הערכה נכונה\?\s*האם יש משהו להוסיף או לתקן\?\s*$/u', '', $text);
-    $text = preg_replace('/\s*האם זו הערכה נכונה\?\s*$/u', '', $text);
-
-    return trim($text);
+function generateConversationId() {
+    return "chat_" . date("YmdHis") . "_" . substr(str_replace(".", "", uniqid("", true)), -10);
 }
 
-function resolveImageConfirmation($apiKey, $imageAssessment, $volunteerReply) {
-    $instruction = "אתה מקבל:
-1. הערכה קודמת שניתנה על סמך תמונה
-2. תגובת מתנדב
+function normalizeConversationId($conversationId) {
+    $conversationId = preg_replace('/[^A-Za-z0-9_-]/', '', (string)$conversationId);
 
-המטרה:
-להחליט האם תגובת המתנדב:
-- מאשרת את ההערכה
-- מתקנת או מוסיפה מידע
-- לא ברורה ודורשת שאלה נוספת
+    return $conversationId !== "" ? $conversationId : generateConversationId();
+}
 
-ענה רק ב-JSON תקין בלבד, בלי טקסט נוסף.
+function requestConversationId() {
+    $conversationId = isset($_POST["conversation_id"]) ? $_POST["conversation_id"] : "";
+
+    return normalizeConversationId($conversationId);
+}
+
+function defaultConversationState($conversationId = null) {
+    $conversationId = normalizeConversationId($conversationId);
+
+    return [
+        "conversation_id" => $conversationId,
+        "stage" => "awaiting_description",
+        "description" => null,
+        "pending_description" => null,
+        "proposed_description" => null,
+        "category" => null,
+        "urgency" => null,
+        "additional_details" => null,
+        "image_text_analysis" => null,
+        "pending_image_analysis" => null,
+        "emergency_notice_shown" => false,
+        "closed" => false,
+        "report_id" => null
+    ];
+}
+
+function getConversationState($conversationId = null) {
+    $conversationId = normalizeConversationId($conversationId);
+
+    if (!isset($_SESSION["report_conversations"]) || !is_array($_SESSION["report_conversations"])) {
+        $_SESSION["report_conversations"] = [];
+    }
+
+    if (!isset($_SESSION["report_conversations"][$conversationId]) || !is_array($_SESSION["report_conversations"][$conversationId])) {
+        $_SESSION["report_conversations"][$conversationId] = defaultConversationState($conversationId);
+    }
+
+    $_SESSION["active_report_conversation_id"] = $conversationId;
+
+    return array_merge(
+        defaultConversationState($conversationId),
+        $_SESSION["report_conversations"][$conversationId],
+        ["conversation_id" => $conversationId]
+    );
+}
+
+function saveConversationState($state) {
+    $conversationId = normalizeConversationId($state["conversation_id"] ?? null);
+    $state["conversation_id"] = $conversationId;
+
+    if (!isset($_SESSION["report_conversations"]) || !is_array($_SESSION["report_conversations"])) {
+        $_SESSION["report_conversations"] = [];
+    }
+
+    $_SESSION["report_conversations"][$conversationId] = array_merge(defaultConversationState($conversationId), $state);
+    $_SESSION["active_report_conversation_id"] = $conversationId;
+}
+
+function basePayload($assistantMessage, $state, $extra = []) {
+    $isClosed = !empty($state["closed"]);
+
+    $payload = array_merge([
+        "success" => true,
+        "reply" => $assistantMessage,
+        "assistant_message" => $assistantMessage,
+        "conversation_id" => $state["conversation_id"] ?? ($GLOBALS["currentConversationId"] ?? null),
+        "conversation_status" => $isClosed ? "closed" : "open",
+        "disable_input" => $isClosed,
+        "report_created" => false
+    ], $extra);
+
+    if (isset($GLOBALS["lastGeminiModelMeta"]) && is_array($GLOBALS["lastGeminiModelMeta"])) {
+        if (!array_key_exists("used_model", $payload)) {
+            $payload["used_model"] = $GLOBALS["lastGeminiModelMeta"]["used_model"] ?? null;
+        }
+
+        if (!array_key_exists("fallback_used", $payload)) {
+            $payload["fallback_used"] = $GLOBALS["lastGeminiModelMeta"]["fallback_used"] ?? false;
+        }
+    }
+
+    return $payload;
+}
+
+function respond($assistantMessage, $state, $extra = []) {
+    saveConversationState($state);
+    jsonResponse(basePayload($assistantMessage, $state, $extra));
+}
+
+function isAffirmative($text) {
+    return preg_match('/\b(כן|נכון|מדויק|מאשר|מאשרת|מאושר|בסדר|תקין|בהחלט|זה נכון|זה מדויק)\b/u', trim($text)) === 1;
+}
+
+function isNegativeOnly($text) {
+    $text = trim($text);
+    return preg_match('/^(לא|לא נכון|לא מדויק|צריך לתקן|תיקון)$/u', $text) === 1;
+}
+
+function addAdditionalDetail(&$state, $detail) {
+    $detail = trim($detail);
+
+    if ($detail === '') {
+        return;
+    }
+
+    if (empty($state["additional_details"])) {
+        $state["additional_details"] = $detail;
+        return;
+    }
+
+    if (strpos($state["additional_details"], $detail) === false) {
+        $state["additional_details"] .= "\n" . $detail;
+    }
+}
+
+function emergencyNotice() {
+    return "חשוב לשים לב: הדיווח במערכת אינו מחליף טיפול חירום. אם מדובר בסכנה מיידית לחיים או לבריאות, יש לפנות מיד לגורם חירום מתאים, כמו מד״א 101, משטרה 100, כבאות 102 או רכז העמותה.";
+}
+
+function maybeEmergencyPrefix(&$state, $hasEmergency) {
+    if (!$hasEmergency || !empty($state["emergency_notice_shown"])) {
+        return "";
+    }
+
+    $state["emergency_notice_shown"] = true;
+    return emergencyNotice() . "\n\n";
+}
+
+function normalizeUrgency($apiKey, $message) {
+    $message = trim($message);
+
+    if ($message === '') {
+        return null;
+    }
+
+    if (preg_match('/(דחוף מאוד|חייבים|עכשיו|מיידי|מידי|סכנה|קריטי|חמור|בהול|היום)/u', $message)) {
+        return "גבוהה";
+    }
+
+    if (preg_match('/(לא דחוף|לא ממהר|בהמשך|כשאפשר|אפשר לטפל בהמשך|נמוכה)/u', $message)) {
+        return "נמוכה";
+    }
+
+    if (preg_match('/(בינוני|בינונית|בקרוב|די דחוף|כדאי לטפל|השבוע)/u', $message)) {
+        return "בינונית";
+    }
+
+    if (preg_match('/(דחוף)/u', $message)) {
+        return "גבוהה";
+    }
+
+    $instruction = "סווג רמת דחיפות של דיווח על צורך של קשיש.
+ענה רק ב-JSON תקין בלי טקסט נוסף.
+
+הערכים היחידים המותרים:
+- נמוכה
+- בינונית
+- גבוהה
+- unclear
+
+פורמט:
+{\"urgency\":\"נמוכה|בינונית|גבוהה|unclear\"}
+
+כללים:
+- \"לא דחוף\", \"אפשר בהמשך\" = נמוכה
+- \"כדאי לטפל בקרוב\" = בינונית
+- \"דחוף מאוד\", \"חייבים עכשיו\" = גבוהה
+- אם אי אפשר להבין, החזר unclear";
+
+    $reply = callGemini($apiKey, [["text" => $message]], $instruction, 25);
+    $parsed = parseJsonFromAi($reply, "Failed to parse urgency JSON");
+    $urgency = $parsed["urgency"] ?? "unclear";
+
+    return in_array($urgency, ["נמוכה", "בינונית", "גבוהה"], true) ? $urgency : null;
+}
+
+function analyzeReportText($apiKey, $message, $context = "") {
+    $instruction = "אתה צ׳אטבוט של מערכת \"נקודות חיבור\".
+המתנדב כבר מזוהה, והקשיש כבר משויך אליו במערכת.
+אסור לבקש שם מתנדב, שם קשיש, טלפון, תעודת זהות, פרטי קשר או פרטי התחברות.
+
+המטרה: לנתח הודעת מתנדב על צורך או בעיה של קשיש, ולענות רק ב-JSON תקין.
 
 פורמט:
 {
-  \"status\": \"confirmed_or_added\" | \"unclear\",
-  \"final_problem\": \"...\",
+  \"is_other_elder_request\": true/false,
+  \"has_emergency_risk\": true/false,
+  \"is_clear_description\": true/false,
+  \"clarification_question\": \"...\",
+  \"proposed_description\": \"...\",
+  \"category\": \"...\",
+  \"additional_details\": \"...\",
+  \"should_confirm_rewrite\": true/false
+}
+
+כללים:
+- אם המתנדב מבקש לדווח על קשיש אחר שאינו משויך אליו, is_other_elder_request=true
+- תיאור כללי כמו \"הוא לא מרגיש טוב\" או \"יש בעיה בבית\" אינו מספיק ברור
+- אם התיאור לא ברור, כתוב clarification_question קצרה אחת בלבד
+- proposed_description יהיה ניסוח מקצועי, קצר וברור של הבעיה
+- category היא קטגוריה דינמית קצרה בעברית, למשל מחסור במזון, בדידות, בעיה רפואית, בעיית תחזוקה בבית, בטיחות, אחר
+- אם יש סכנת חיים או מצב חירום מיידי, has_emergency_risk=true
+- אל תמליץ על עמותה ואל תבצע ניתוב";
+
+    $parts = [];
+
+    if (trim($context) !== '') {
+        $parts[] = ["text" => "הקשר קודם:\n" . $context];
+    }
+
+    $parts[] = ["text" => "הודעת המתנדב:\n" . $message];
+
+    $reply = callGemini($apiKey, $parts, $instruction, 35);
+    $parsed = parseJsonFromAi($reply, "Failed to parse report analysis JSON");
+
+    return [
+        "is_other_elder_request" => !empty($parsed["is_other_elder_request"]),
+        "has_emergency_risk" => !empty($parsed["has_emergency_risk"]),
+        "is_clear_description" => !empty($parsed["is_clear_description"]),
+        "clarification_question" => trim($parsed["clarification_question"] ?? ""),
+        "proposed_description" => trim($parsed["proposed_description"] ?? ""),
+        "category" => trim($parsed["category"] ?? "אחר"),
+        "additional_details" => trim($parsed["additional_details"] ?? ""),
+        "should_confirm_rewrite" => !empty($parsed["should_confirm_rewrite"])
+    ];
+}
+
+function analyzeImage($apiKey, $message, $imageTmpPath, $imageMimeType) {
+    $rawImage = file_get_contents($imageTmpPath);
+
+    if ($rawImage === false) {
+        jsonResponse(["error" => "Failed to read uploaded image"], 500);
+    }
+
+    $instruction = "אתה עוזר לנתח תמונה שצורפה לדיווח על צורך של קשיש.
+התמונה עצמה לא נשמרת. יש לייצר רק ניתוח טקסטואלי קצר.
+כתוב בעברית, בצורה זהירה ולא נחרצת מדי.
+הסבר מה נראה בתמונה ומה הבעיה האפשרית.
+אל תבקש פרטים אישיים.
+סיים בשאלה: האם זה מתאר נכון את הבעיה?";
+
+    $parts = [];
+
+    if (trim($message) !== '') {
+        $parts[] = ["text" => "טקסט שכתב המתנדב לצד התמונה:\n" . $message];
+    }
+
+    $parts[] = [
+        "inline_data" => [
+            "mime_type" => $imageMimeType,
+            "data" => base64_encode($rawImage)
+        ]
+    ];
+
+    return callGemini($apiKey, $parts, $instruction, 60);
+}
+
+function resolveImageConfirmation($apiKey, $imageAssessment, $volunteerReply) {
+    $instruction = "אתה מקבל ניתוח תמונה קודם ותגובת מתנדב.
+המטרה היא להבין האם המתנדב אישר את הניתוח, תיקן אותו, או שהתגובה לא ברורה.
+ענה רק ב-JSON תקין.
+
+פורמט:
+{
+  \"status\": \"confirmed_or_corrected\" | \"unclear\",
+  \"final_image_text_analysis\": \"...\",
   \"followup_question\": \"...\"
 }
 
 כללים:
-- אם המתנדב מאשר, מפרגן, או כותב שאין מה לתקן, final_problem צריך להיות תיאור הבעיה הקודם
-- אם המתנדב מוסיף או מתקן, final_problem צריך להיות ניסוח מסודר אחד שמבוסס על ההערכה הקודמת יחד עם התיקון או ההוספה
-- אם התגובה לא ברורה בכלל, status יהיה unclear ותכתוב followup_question קצרה בעברית
-- אל תחזיר null
-- אל תכתוב הסברים מחוץ ל-JSON";
+- אם המתנדב מאשר, final_image_text_analysis יהיה הניתוח הקודם
+- אם הוא מתקן או מוסיף, שלב את התיקון שלו לניסוח מסודר
+- אם לא ברור, status=unclear ושאל שאלה קצרה
+- אין לשמור או להזכיר קובץ תמונה, רק טקסט";
 
     $reply = callGemini(
         $apiKey,
         [
-            ["text" => "הערכה קודמת:\n" . $imageAssessment],
+            ["text" => "ניתוח קודם:\n" . $imageAssessment],
             ["text" => "תגובת המתנדב:\n" . $volunteerReply]
         ],
         $instruction,
@@ -206,55 +715,84 @@ function resolveImageConfirmation($apiKey, $imageAssessment, $volunteerReply) {
     return parseJsonFromAi($reply, "Failed to parse image confirmation JSON");
 }
 
-/*
-    חיפוש קשיש לפי שם, אבל רק מתוך קשישים שמשויכים למתנדב.
-    זה מונע מצב שבו יש שתי מרים במערכת והקוד בוחר את הלא נכונה.
-*/
-function findElderlyByName($pdo, $elderName, $volunteerId) {
-    $elderName = trim($elderName);
+function buildSummaryMessage($state) {
+    $summary = "סיכום לפני יצירת הדיווח:\n\n";
+    $summary .= "תיאור המקרה: " . ($state["description"] ?: "לא נמסר") . "\n";
+    $summary .= "קטגוריה: " . ($state["category"] ?: "אחר") . "\n";
+    $summary .= "רמת דחיפות: " . ($state["urgency"] ?: "לא נמסרה") . "\n";
+    $summary .= "פירוט נוסף: " . (!empty($state["additional_details"]) ? $state["additional_details"] : "אין") . "\n\n";
+    $summary .= "אם הסיכום מדויק, אפשר לאשר וליצור דיווח.";
+
+    return $summary;
+}
+
+function summaryActions() {
+    return [
+        ["label" => "אישור ויצירת דיווח", "action" => "confirm_report", "variant" => "primary"],
+        ["label" => "עריכת תיאור", "action" => "edit_description", "variant" => "secondary"],
+        ["label" => "שינוי דחיפות", "action" => "change_urgency", "variant" => "secondary"],
+        ["label" => "ביטול", "action" => "cancel", "variant" => "ghost"]
+    ];
+}
+
+function respondWithSummary($state) {
+    $state["stage"] = "awaiting_summary_confirmation";
+    respond(buildSummaryMessage($state), $state, [
+        "actions" => summaryActions(),
+        "disable_input" => false,
+        "conversation_status" => "open"
+    ]);
+}
+
+function getCurrentVolunteerId() {
+    if (!empty($_SESSION["volunteer_id"])) {
+        return (int)$_SESSION["volunteer_id"];
+    }
+
+    if (!empty($_SESSION["user"]["volunteer_id"])) {
+        return (int)$_SESSION["user"]["volunteer_id"];
+    }
+
+    return 1;
+}
+
+function getAssignedElderlyForVolunteer($pdo, $volunteerId) {
+    if (!empty($_SESSION["elderly_id"])) {
+        $stmt = $pdo->prepare("
+            SELECT e.*
+            FROM elderly e
+            JOIN volunteer_elderly_assignments vea ON vea.elderly_id = e.id
+            WHERE e.id = :elderly_id
+              AND vea.volunteer_id = :volunteer_id
+            LIMIT 1
+        ");
+
+        $stmt->execute([
+            ':elderly_id' => (int)$_SESSION["elderly_id"],
+            ':volunteer_id' => $volunteerId
+        ]);
+
+        $elderly = $stmt->fetch();
+
+        if ($elderly) {
+            return $elderly;
+        }
+    }
 
     $stmt = $pdo->prepare("
         SELECT e.*
         FROM elderly e
-        JOIN volunteer_elderly_assignments vea
-            ON vea.elderly_id = e.id
+        JOIN volunteer_elderly_assignments vea ON vea.elderly_id = e.id
         WHERE vea.volunteer_id = :volunteer_id
-          AND (
-                CONCAT(e.first_name, ' ', e.last_name) LIKE :full_name
-                OR e.first_name LIKE :name
-                OR e.last_name LIKE :name
-              )
+        ORDER BY e.id ASC
         LIMIT 1
     ");
 
     $stmt->execute([
-        ':volunteer_id' => $volunteerId,
-        ':full_name' => '%' . $elderName . '%',
-        ':name' => '%' . $elderName . '%'
+        ':volunteer_id' => $volunteerId
     ]);
 
     return $stmt->fetch();
-}
-
-function getVolunteerUserId($pdo, $volunteerId) {
-    $stmt = $pdo->prepare("
-        SELECT user_id
-        FROM volunteers
-        WHERE id = :id
-        LIMIT 1
-    ");
-
-    $stmt->execute([
-        ':id' => $volunteerId
-    ]);
-
-    $row = $stmt->fetch();
-
-    if ($row && !empty($row["user_id"])) {
-        return $row["user_id"];
-    }
-
-    return 1;
 }
 
 function saveReport($pdo, $volunteerId, $elderlyId, $content, $urgency) {
@@ -270,348 +808,90 @@ function saveReport($pdo, $volunteerId, $elderlyId, $content, $urgency) {
         ':elderly_id' => $elderlyId,
         ':content' => $content,
         ':urgency' => $urgency,
-        ':status' => 'הוגש',
+        ':status' => 'חדש',
         ':classification_source' => 'AI'
     ]);
 
     return $pdo->lastInsertId();
 }
 
-function getActiveCategories($pdo) {
-    $stmt = $pdo->query("
-        SELECT id, name, description
-        FROM need_categories
-        WHERE active = 1
-        ORDER BY id ASC
-    ");
-
-    return $stmt->fetchAll();
-}
-
-function classifyReportByCategories($apiKey, $pdo, $content) {
-    $categories = getActiveCategories($pdo);
-
-    if (empty($categories)) {
-        return [];
-    }
-
-    $categoryText = "";
-
-    foreach ($categories as $category) {
-        $categoryText .= $category["id"] . ". " . $category["name"] . " - " . $category["description"] . "\n";
-    }
-
-    $validIds = array_map(function ($category) {
-        return (int)$category["id"];
-    }, $categories);
-
-    $instruction = "אתה מסווג דיווח על צורך של קשיש.
-בחר רק מתוך הקטגוריות הנתונות.
-ענה רק ב-JSON תקין בלבד, בלי טקסט נוסף.
-
-פורמט:
-{
-  \"categories\": [
-    {
-      \"category_id\": 1,
-      \"confidence_score\": 0.85
-    }
-  ]
-}
-
-כללים:
-- אפשר לבחור קטגוריה אחת או יותר
-- confidence_score הוא מספר בין 0 ל-1
-- אל תמציא category_id שלא קיים ברשימה
-- אם אין התאמה מושלמת, בחר את הקטגוריה הכי קרובה
-- החזר מקסימום 3 קטגוריות";
-
-    $reply = callGemini(
-        $apiKey,
-        [
-            ["text" => "רשימת קטגוריות מותרות:\n" . $categoryText],
-            ["text" => "הדיווח:\n" . $content]
-        ],
-        $instruction,
-        30
-    );
-
-    $parsed = parseJsonFromAi($reply, "Failed to parse classification JSON");
-
-    $selected = $parsed["categories"] ?? [];
-    $cleanSelected = [];
-
-    foreach ($selected as $item) {
-        $categoryId = isset($item["category_id"]) ? (int)$item["category_id"] : 0;
-
-        if (!in_array($categoryId, $validIds, true)) {
-            continue;
-        }
-
-        $score = isset($item["confidence_score"]) ? (float)$item["confidence_score"] : 0.7;
-
-        if ($score < 0) {
-            $score = 0;
-        }
-
-        if ($score > 1) {
-            $score = 1;
-        }
-
-        $cleanSelected[] = [
-            "category_id" => $categoryId,
-            "confidence_score" => $score
-        ];
-    }
-
-    return $cleanSelected;
-}
-
-function saveReportCategories($pdo, $reportId, $categories) {
-    if (empty($categories)) {
-        return;
-    }
-
-    $stmt = $pdo->prepare("
-        INSERT INTO report_categories
-        (report_id, category_id, confidence_score)
-        VALUES
-        (:report_id, :category_id, :confidence_score)
-    ");
-
-    foreach ($categories as $category) {
-        if (empty($category["category_id"])) {
-            continue;
-        }
-
-        $stmt->execute([
-            ':report_id' => $reportId,
-            ':category_id' => $category["category_id"],
-            ':confidence_score' => $category["confidence_score"] ?? 0.7
-        ]);
-    }
-}
-
-function getCategoryName($pdo, $categoryId) {
-    $stmt = $pdo->prepare("
-        SELECT name
-        FROM need_categories
-        WHERE id = :id
-        LIMIT 1
-    ");
-
-    $stmt->execute([
-        ':id' => $categoryId
-    ]);
-
-    $row = $stmt->fetch();
-
-    return $row ? $row["name"] : "";
-}
-
-function findMatchingOrganization($pdo, $categoryId, $city) {
-    $stmt = $pdo->prepare("
-        SELECT DISTINCT o.*, osa.city AS service_area_city
-        FROM organizations o
-        JOIN organization_categories oc
-            ON oc.organization_id = o.id
-        LEFT JOIN organization_service_areas osa
-            ON osa.organization_id = o.id
-        WHERE oc.category_id = :category_id
-          AND o.active = 1
-          AND (
-                osa.city = :city
-                OR osa.city = 'כל הארץ'
-                OR o.city = :city
-              )
-        ORDER BY
-            CASE
-                WHEN osa.city = :city THEN 1
-                WHEN o.city = :city THEN 2
-                WHEN osa.city = 'כל הארץ' THEN 3
-                ELSE 4
-            END ASC
-        LIMIT 1
-    ");
-
-    $stmt->execute([
-        ':category_id' => $categoryId,
-        ':city' => $city
-    ]);
-
-    $organization = $stmt->fetch();
-
-    if ($organization) {
-        return $organization;
-    }
-
-    /*
-        fallback:
-        אם אין עמותה באותה עיר, עדיין נחפש עמותה פעילה לפי קטגוריה.
-    */
-    $fallbackStmt = $pdo->prepare("
-        SELECT DISTINCT o.*
-        FROM organizations o
-        JOIN organization_categories oc
-            ON oc.organization_id = o.id
-        WHERE oc.category_id = :category_id
-          AND o.active = 1
-        LIMIT 1
-    ");
-
-    $fallbackStmt->execute([
-        ':category_id' => $categoryId
-    ]);
-
-    return $fallbackStmt->fetch();
-}
-
-function createReferral($pdo, $reportId, $organizationId, $elderlyId, $categoryId, $notes) {
-    $stmt = $pdo->prepare("
-        INSERT INTO referrals
-        (report_id, organization_id, elderly_id, category_id, notes, status, created_date, expected_resolution_date, created_at)
-        VALUES
-        (:report_id, :organization_id, :elderly_id, :category_id, :notes, :status, CURDATE(), NULL, NOW())
-    ");
-
-    $stmt->execute([
-        ':report_id' => $reportId,
-        ':organization_id' => $organizationId,
-        ':elderly_id' => $elderlyId,
-        ':category_id' => $categoryId,
-        ':notes' => $notes,
-        ':status' => 'חדש'
-    ]);
-
-    return $pdo->lastInsertId();
-}
-
-function createReferralStatusHistory($pdo, $referralId, $changedByUserId) {
-    $stmt = $pdo->prepare("
-        INSERT INTO referral_status_history
-        (referral_id, old_status, new_status, changed_by_user_id, notes, created_at)
-        VALUES
-        (:referral_id, :old_status, :new_status, :changed_by_user_id, :notes, NOW())
-    ");
-
-    $stmt->execute([
-        ':referral_id' => $referralId,
-        ':old_status' => null,
-        ':new_status' => 'חדש',
-        ':changed_by_user_id' => $changedByUserId,
-        ':notes' => 'פניה נפתחה אוטומטית על ידי הצ׳אטבוט'
-    ]);
-}
-
-function finalizeReportAndRespond($pdo, $geminiApiKey, $state, $volunteerId) {
-    $elderName = trim($state["elder_name"] ?? "");
-
-    $elderly = findElderlyByName($pdo, $elderName, $volunteerId);
+function createReportFromState($pdo, $state, $volunteerId) {
+    $elderly = getAssignedElderlyForVolunteer($pdo, $volunteerId);
 
     if (!$elderly) {
-        $state["elder_name"] = null;
-        $_SESSION["report_state"] = $state;
-
-        jsonResponse([
-            "reply" => "לא מצאתי קשיש/ה בשם \"" . $elderName . "\" שמשויך/ת למתנדב הזה. אפשר לכתוב שם מלא, למשל שם פרטי ושם משפחה?"
-        ]);
+        throw new RuntimeException("No assigned elderly found for volunteer");
     }
 
-    $content = "תיאור הבעיה: " . ($state["problem"] ?? "לא נמסר");
+    $content = "תיאור המקרה: " . ($state["description"] ?? "");
+    $content .= "\nקטגוריה: " . ($state["category"] ?? "אחר");
+    $content .= "\nרמת דחיפות: " . ($state["urgency"] ?? "");
+    $content .= "\nפירוט נוסף: " . (!empty($state["additional_details"]) ? $state["additional_details"] : "אין");
 
-    if (!empty($state["extra"])) {
-        $content .= "\nפרטים נוספים: " . $state["extra"];
+    if (!empty($state["image_text_analysis"])) {
+        $content .= "\nניתוח טקסטואלי שאושר מתמונה: " . $state["image_text_analysis"];
     }
 
-    $content .= "\nשם הקשיש/ה: " . $elderly["first_name"] . " " . $elderly["last_name"];
-    $content .= "\nעיר: " . $elderly["city"];
-
-    $reportId = saveReport(
+    return saveReport(
         $pdo,
         $volunteerId,
         $elderly["id"],
         $content,
-        $state["urgency"] ?? "לא נמסר"
+        $state["urgency"] ?? "בינונית"
     );
+}
 
-    $categories = classifyReportByCategories($geminiApiKey, $pdo, $content);
+function askForUrgency($state, $prefix = "") {
+    $state["stage"] = "awaiting_urgency";
+    respond($prefix . "מה רמת הדחיפות של המקרה? אפשר לענות חופשי, למשל: לא דחוף, כדאי לטפל בקרוב, או דחוף מאוד.", $state);
+}
 
-    saveReportCategories($pdo, $reportId, $categories);
+function handleClearDescription($analysis, $state) {
+    $state["category"] = $analysis["category"] ?: "אחר";
+    addAdditionalDetail($state, $analysis["additional_details"]);
 
-    $organization = null;
-    $referralId = null;
-    $selectedCategoryName = "";
+    $proposedDescription = $analysis["proposed_description"] ?: $state["pending_description"];
+    $state["proposed_description"] = $proposedDescription;
+    $state["stage"] = "awaiting_description_approval";
 
-    foreach ($categories as $category) {
-        $categoryId = $category["category_id"] ?? null;
+    $prefix = maybeEmergencyPrefix($state, $analysis["has_emergency_risk"]);
+    $message = $prefix . "ניסחתי את הדיווח כך:\n\"" . $proposedDescription . "\"\n\nהאם זה מדויק מבחינתך?";
 
-        if (!$categoryId) {
-            continue;
-        }
+    respond($message, $state);
+}
 
-        $foundOrganization = findMatchingOrganization($pdo, $categoryId, $elderly["city"]);
+function processDescriptionMessage($apiKey, $message, $state) {
+    $context = "";
 
-        if ($foundOrganization) {
-            $organization = $foundOrganization;
-            $selectedCategoryName = getCategoryName($pdo, $categoryId);
-
-            $referralId = createReferral(
-                $pdo,
-                $reportId,
-                $organization["id"],
-                $elderly["id"],
-                $categoryId,
-                $content
-            );
-
-            $changedByUserId = getVolunteerUserId($pdo, $volunteerId);
-            createReferralStatusHistory($pdo, $referralId, $changedByUserId);
-
-            break;
-        }
+    if (preg_match('/(קשיש אחר|קשישה אחרת|מישהו אחר|מישהי אחרת|לא משויך|לא משויכת|לא הקשיש שלי|לא הקשישה שלי)/u', $message)) {
+        $state["stage"] = "awaiting_description";
+        respond("אני מבין. כרגע ניתן לפתוח דיווח רק על קשיש שמשויך אליך במערכת. אם מדובר בקשיש אחר, יש לפנות לרכז כדי לפתוח תיק חדש או לשייך אותו אליך.", $state);
     }
 
-    $categoryNames = [];
-
-    foreach ($categories as $category) {
-        if (!empty($category["category_id"])) {
-            $name = getCategoryName($pdo, $category["category_id"]);
-
-            if ($name !== "") {
-                $categoryNames[] = $name;
-            }
-        }
+    if (!empty($state["pending_description"])) {
+        $context .= "תיאור קודם לא מלא:\n" . $state["pending_description"] . "\n";
     }
 
-    $summary = "סיכום דיווח:\n\n";
-    $summary .= "שם הקשיש/ה: " . $elderly["first_name"] . " " . $elderly["last_name"] . "\n";
-    $summary .= "עיר: " . $elderly["city"] . "\n";
-    $summary .= "תיאור הבעיה: " . ($state["problem"] ?: "לא נמסר") . "\n";
-    $summary .= "רמת דחיפות: " . ($state["urgency"] ?: "לא נמסר") . "\n";
-    $summary .= "פרטים נוספים: " . ($state["extra"] ?: "אין") . "\n\n";
-
-    $summary .= "מספר דיווח: " . $reportId . "\n";
-
-    if (!empty($categoryNames)) {
-        $summary .= "הסיווג האוטומטי: " . implode(", ", $categoryNames) . "\n";
-    } else {
-        $summary .= "הסיווג האוטומטי: לא נמצאה קטגוריה מתאימה\n";
+    if (!empty($state["image_text_analysis"])) {
+        $context .= "ניתוח תמונה שאושר:\n" . $state["image_text_analysis"] . "\n";
     }
 
-    if ($organization) {
-        $summary .= "עמותה מתאימה: " . $organization["name"] . "\n";
-        $summary .= "קטגוריית הפנייה: " . $selectedCategoryName . "\n";
-        $summary .= "מספר פנייה: " . $referralId . "\n\n";
-        $summary .= "הדיווח נשמר ונפתחה פנייה אוטומטית להמשך טיפול.";
-    } else {
-        $summary .= "\nהדיווח נשמר, אבל לא נמצאה עמותה מתאימה אוטומטית לפי הקטגוריה והעיר.";
+    $analysis = analyzeReportText($apiKey, $message, $context);
+
+    if ($analysis["is_other_elder_request"]) {
+        $state["stage"] = "awaiting_description";
+        respond("אני מבין. כרגע ניתן לפתוח דיווח רק על קשיש שמשויך אליך במערכת. אם מדובר בקשיש אחר, יש לפנות לרכז כדי לפתוח תיק חדש או לשייך אותו אליך.", $state);
     }
 
-    unset($_SESSION["report_state"]);
+    if (!$analysis["is_clear_description"]) {
+        $state["stage"] = "needs_clarification";
+        $state["pending_description"] = trim(($state["pending_description"] ? $state["pending_description"] . "\n" : "") . $message);
+        $prefix = maybeEmergencyPrefix($state, $analysis["has_emergency_risk"]);
+        $question = $analysis["clarification_question"] ?: "תוכל לפרט קצת יותר מה בדיוק קרה או מה הקושי המרכזי?";
+        respond($prefix . $question, $state);
+    }
 
-    jsonResponse([
-        "reply" => $summary
-    ]);
+    $state["pending_description"] = trim(($state["pending_description"] ? $state["pending_description"] . "\n" : "") . $message);
+    handleClearDescription($analysis, $state);
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -624,236 +904,184 @@ if (!$geminiApiKey) {
     jsonResponse(["error" => "Missing API Key"], 500);
 }
 
-/*
-    כרגע אין login אמיתי בצ׳אטבוט.
-    לכן משתמשים זמנית במתנדב מספר 1.
-    בהמשך, אחרי התחברות, מחליפים את זה ל-ID של המתנדב המחובר.
-*/
-$currentVolunteerId = 1;
-
+$conversationId = requestConversationId();
+$GLOBALS["currentConversationId"] = $conversationId;
+$currentVolunteerId = getCurrentVolunteerId();
+$state = getConversationState($conversationId);
 $message = trim(isset($_POST["message"]) ? $_POST["message"] : "");
+$action = trim(isset($_POST["action"]) ? $_POST["action"] : "");
 $imageUploaded = isset($_FILES["image"]) && $_FILES["image"]["error"] === UPLOAD_ERR_OK;
+
+if (!empty($state["closed"])) {
+    jsonResponse(basePayload(
+        "השיחה הסתיימה לאחר יצירת הדיווח. כדי להמשיך יש לפתוח צ׳אט חדש.",
+        $state,
+        [
+            "disable_input" => true,
+            "report_created" => true,
+            "report_id" => $state["report_id"] ?? null
+        ]
+    ));
+}
+
+if ($action !== "") {
+    if ($action === "confirm_report") {
+        if (empty($state["description"]) || empty($state["urgency"])) {
+            respond("חסר מידע חובה לפני יצירת הדיווח. נמשיך להשלים אותו בקצרה.", $state);
+        }
+
+        try {
+            $reportId = createReportFromState($pdo, $state, $currentVolunteerId);
+            $state["closed"] = true;
+            $state["stage"] = "closed";
+            $state["report_id"] = (string)$reportId;
+            saveConversationState($state);
+
+            jsonResponse(basePayload(
+                "תודה רבה, הדיווח נוצר בהצלחה. ניתן לעקוב אחרי הסטטוס שלו במסך הייעודי.",
+                $state,
+                [
+                    "conversation_status" => "closed",
+                    "disable_input" => true,
+                    "report_created" => true,
+                    "report_id" => (string)$reportId
+                ]
+            ));
+        } catch (Throwable $e) {
+            error_log("REPORT CREATE ERROR: " . $e->getMessage());
+            $state["closed"] = false;
+            saveConversationState($state);
+
+            jsonResponse(basePayload(
+                "לא הצלחנו ליצור את הדיווח כרגע. אפשר לנסות שוב בעוד רגע.",
+                $state,
+                [
+                    "success" => false,
+                    "conversation_status" => "open",
+                    "disable_input" => false,
+                    "report_created" => false,
+                    "actions" => summaryActions()
+                ]
+            ), 500);
+        }
+    }
+
+    if ($action === "edit_description") {
+        $state["stage"] = "awaiting_description";
+        $state["description"] = null;
+        $state["pending_description"] = null;
+        $state["proposed_description"] = null;
+        respond("בסדר. כתוב לי את התיאור המתוקן של המקרה, ואני אדייק את הדיווח.", $state);
+    }
+
+    if ($action === "change_urgency") {
+        $state["stage"] = "awaiting_urgency";
+        $state["urgency"] = null;
+        respond("מה רמת הדחיפות המעודכנת? אפשר לכתוב חופשי, למשל לא דחוף, כדאי לטפל בקרוב או דחוף מאוד.", $state);
+    }
+
+    if ($action === "cancel") {
+        $state = defaultConversationState($conversationId);
+        respond("ביטלתי את הסיכום. אם תרצה לפתוח דיווח חדש, כתוב לי בקצרה מה קרה.", $state);
+    }
+
+    jsonResponse(["error" => "Unknown action"], 400);
+}
 
 if (!$imageUploaded && $message === "") {
     jsonResponse(["error" => "No message or image provided"], 400);
 }
 
-if (!isset($_SESSION["report_state"])) {
-    $_SESSION["report_state"] = [
-        "problem" => null,
-        "elder_name" => null,
-        "urgency" => null,
-        "extra" => null,
-        "waiting_image_confirmation" => false,
-        "image_assessment" => null
-    ];
-}
-
-$state = $_SESSION["report_state"];
-
-/*
-    1. אם הבוט מחכה לאישור/תיקון אחרי ניתוח תמונה
-*/
-if (!empty($state["waiting_image_confirmation"]) && !$imageUploaded) {
-    $resolution = resolveImageConfirmation(
-        $geminiApiKey,
-        $state["image_assessment"] ?: "",
-        $message
-    );
-
-    $status = $resolution["status"] ?? "unclear";
-    $finalProblem = trim($resolution["final_problem"] ?? "");
-    $followupQuestion = trim($resolution["followup_question"] ?? "");
-
-    if ($status === "unclear") {
-        $_SESSION["report_state"] = $state;
-
-        jsonResponse([
-            "reply" => $followupQuestion !== "" ? $followupQuestion : "כדי לדייק, האם ההערכה על התמונה נכונה או שיש משהו שצריך לתקן?"
-        ]);
-    }
-
-    $state["problem"] = $finalProblem !== "" ? $finalProblem : ($state["image_assessment"] ?: $message);
-    $state["waiting_image_confirmation"] = false;
-    $_SESSION["report_state"] = $state;
-
-    if (empty($state["elder_name"])) {
-        jsonResponse([
-            "reply" => "תודה. מה שם הקשיש/ה? עדיף שם פרטי ושם משפחה."
-        ]);
-    }
-
-    if (empty($state["urgency"])) {
-        jsonResponse([
-            "reply" => "מה רמת הדחיפות? נמוכה, בינונית או גבוהה?"
-        ]);
-    }
-
-    finalizeReportAndRespond($pdo, $geminiApiKey, $state, $currentVolunteerId);
-}
-
-/*
-    2. אם צורפה תמונה - מנתחים אותה קודם
-*/
 if ($imageUploaded) {
     $imageTmpPath = $_FILES["image"]["tmp_name"];
-
-    error_log("IMAGE DEBUG: entered image branch");
-    error_log("IMAGE DEBUG: tmp path = " . $imageTmpPath);
 
     if (!is_uploaded_file($imageTmpPath)) {
         jsonResponse(["error" => "Uploaded image tmp file missing"], 500);
     }
 
-    $rawImage = file_get_contents($imageTmpPath);
+    $imageMimeType = !empty($_FILES["image"]["type"]) ? $_FILES["image"]["type"] : "image/jpeg";
+    $imageAssessment = analyzeImage($geminiApiKey, $message, $imageTmpPath, $imageMimeType);
 
-    if ($rawImage === false) {
-        jsonResponse(["error" => "Failed to read uploaded image"], 500);
+    $state["pending_image_analysis"] = $imageAssessment;
+    $state["stage"] = "awaiting_image_confirmation";
+
+    if ($message !== "") {
+        addAdditionalDetail($state, "הערת המתנדב לצד התמונה: " . $message);
     }
 
-    $imageMimeType = 'image/jpeg';
+    respond($imageAssessment, $state);
+}
 
-    if (isset($_FILES["image"]["type"]) && !empty($_FILES["image"]["type"])) {
-        $imageMimeType = $_FILES["image"]["type"];
+if ($state["stage"] === "awaiting_image_confirmation") {
+    $resolution = resolveImageConfirmation($geminiApiKey, $state["pending_image_analysis"] ?: "", $message);
+    $status = $resolution["status"] ?? "unclear";
+
+    if ($status === "unclear") {
+        $question = trim($resolution["followup_question"] ?? "");
+        respond($question !== "" ? $question : "כדי לדייק, האם הניתוח של התמונה נכון או שיש משהו שצריך לתקן?", $state);
     }
 
-    $imageData = base64_encode($rawImage);
+    $finalImageText = trim($resolution["final_image_text_analysis"] ?? "");
+    $state["image_text_analysis"] = $finalImageText ?: ($state["pending_image_analysis"] ?: "");
+    $state["pending_image_analysis"] = null;
+    addAdditionalDetail($state, "מידע שאושר מהתמונה: " . $state["image_text_analysis"]);
 
-    $visionInstruction = "אתה עוזר לנתח תמונה שצורפה בדיווח על קשיש.
-תן הערכה ראשונית קצרה וברורה למה שנראה בתמונה ולמה הבעיה האפשרית.
-אל תכתוב בוודאות מוחלטת אם אינך בטוח.
-אם יש גם טקסט מהמתנדב, התחשב בו.
-ענה בעברית, בצורה אנושית וקצרה.
-בסוף שאל בדיוק:
-האם זו הערכה נכונה? האם יש משהו להוסיף או לתקן?";
-
-    $visionParts = [];
-
-    if ($message !== '') {
-        $visionParts[] = ["text" => "הערת המתנדב: " . $message];
+    if (empty($state["description"])) {
+        $state["stage"] = "awaiting_description";
+        respond("תודה, עכשיו כתוב לי בקצרה מה קרה או מה הצורך המרכזי.", $state);
     }
 
-    $visionParts[] = [
-        "inline_data" => [
-            "mime_type" => $imageMimeType,
-            "data" => $imageData
-        ]
-    ];
+    if (empty($state["urgency"])) {
+        askForUrgency($state, "תודה, עדכנתי את הדיווח לפי התמונה.\n\n");
+    }
 
-    $visionReply = callGemini($geminiApiKey, $visionParts, $visionInstruction, 60);
+    respondWithSummary($state);
+}
 
-    $state["image_assessment"] = cleanImageAssessment($visionReply);
+if ($state["stage"] === "awaiting_description_approval") {
+    if (isAffirmative($message)) {
+        $state["description"] = $state["proposed_description"] ?: $state["pending_description"];
+        $state["pending_description"] = null;
+        $state["proposed_description"] = null;
 
-    if ($message !== '') {
-        if (empty($state["extra"])) {
-            $state["extra"] = $message;
-        } else {
-            $state["extra"] .= " | " . $message;
+        if (empty($state["urgency"])) {
+            askForUrgency($state, "תודה, עדכנתי את תיאור המקרה.\n\n");
         }
+
+        respondWithSummary($state);
     }
 
-    $state["waiting_image_confirmation"] = true;
-    $_SESSION["report_state"] = $state;
-
-    jsonResponse([
-        "reply" => trim($visionReply)
-    ]);
-}
-
-/*
-    3. הודעה ראשונה - שומרים אותה כתיאור הבעיה
-*/
-if (empty($state["problem"])) {
-    $state["problem"] = $message;
-    $_SESSION["report_state"] = $state;
-
-    jsonResponse([
-        "reply" => "תודה על הדיווח. מה שם הקשיש/ה? עדיף שם פרטי ושם משפחה."
-    ]);
-}
-
-/*
-    4. חילוץ שם קשיש, דחיפות ופרטים נוספים מההודעה
-*/
-$extractInstruction = "אתה מחלץ מידע מתוך הודעת מתנדב על קשיש.
-ענה רק ב-JSON תקין בלבד בלי טקסט נוסף.
-
-השדות האפשריים:
-elder_name
-urgency
-extra
-
-כללים:
-- אם ההודעה נראית כמו שם של אדם, שים אותו ב-elder_name
-- אם ההודעה היא נמוכה / בינונית / גבוהה / דחוף / לא דחוף, שים אותה ב-urgency
-- אם יש מידע נוסף שעוזר להבין את הדיווח, שים אותו ב-extra
-- אם שדה לא מופיע בהודעה, החזר null
-- אל תמציא מידע
-
-פורמט תשובה:
-{
-  \"elder_name\": null,
-  \"urgency\": null,
-  \"extra\": null
-}";
-
-$replyText = callGemini(
-    $geminiApiKey,
-    [
-        ["text" => $message]
-    ],
-    $extractInstruction,
-    30
-);
-
-$extracted = parseJsonFromAi($replyText, "Failed to parse extracted JSON");
-
-/*
-    5. עדכון state
-*/
-if (empty($state["elder_name"]) && !empty($extracted["elder_name"])) {
-    $state["elder_name"] = trim($extracted["elder_name"]);
-}
-
-if (empty($state["urgency"]) && !empty($extracted["urgency"])) {
-    $state["urgency"] = trim($extracted["urgency"]);
-}
-
-if (!empty($extracted["extra"])) {
-    if (empty($state["extra"])) {
-        $state["extra"] = trim($extracted["extra"]);
-    } else {
-        $state["extra"] .= " | " . trim($extracted["extra"]);
+    if (isNegativeOnly($message)) {
+        $state["stage"] = "awaiting_description";
+        respond("אין בעיה. כתוב לי את התיקון או הניסוח המדויק, ואעדכן את הדיווח.", $state);
     }
+
+    $state["pending_description"] = null;
+    $state["proposed_description"] = null;
+    processDescriptionMessage($geminiApiKey, $message, $state);
 }
 
-/*
-    הגנה פשוטה:
-    אם הבוט חיכה לשם קשיש וה-AI לא הבין, נשתמש במה שהמשתמש כתב כשם.
-*/
-if (empty($state["elder_name"]) && empty($state["urgency"])) {
-    $state["elder_name"] = $message;
+if ($state["stage"] === "awaiting_urgency") {
+    $urgency = normalizeUrgency($geminiApiKey, $message);
+
+    if ($urgency === null) {
+        respond("לא הצלחתי להבין את רמת הדחיפות. האם היא נמוכה, בינונית או גבוהה?", $state);
+    }
+
+    $state["urgency"] = $urgency;
+    respondWithSummary($state);
 }
 
-$_SESSION["report_state"] = $state;
-
-/*
-    6. השרת מחליט מה לשאול הבא
-*/
-if (empty($state["elder_name"])) {
-    jsonResponse([
-        "reply" => "תודה. מה שם הקשיש/ה? עדיף שם פרטי ושם משפחה."
+if ($state["stage"] === "awaiting_summary_confirmation") {
+    respond("כדי להמשיך, אפשר להשתמש בכפתורים: אישור ויצירת דיווח, עריכת תיאור, שינוי דחיפות או ביטול.", $state, [
+        "actions" => summaryActions()
     ]);
 }
 
-if (empty($state["urgency"])) {
-    jsonResponse([
-        "reply" => "מה רמת הדחיפות? נמוכה, בינונית או גבוהה?"
-    ]);
+if ($state["stage"] === "needs_clarification") {
+    $combined = trim(($state["pending_description"] ? $state["pending_description"] . "\n" : "") . $message);
+    $state["pending_description"] = null;
+    processDescriptionMessage($geminiApiKey, $combined, $state);
 }
 
-/*
-    7. סיום:
-    שמירה ב-DB, סיווג, מציאת עמותה ופתיחת פנייה
-*/
-finalizeReportAndRespond($pdo, $geminiApiKey, $state, $currentVolunteerId);
+processDescriptionMessage($geminiApiKey, $message, $state);
