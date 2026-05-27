@@ -8,7 +8,221 @@
     <link rel="stylesheet" href="help-tooltips.css">
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700;800&family=Heebo:wght@500;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        .reports-summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 18px;
+            padding: 16px 18px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+        }
+
+        .summary-card strong {
+            display: block;
+            color: var(--dark-blue);
+            font-size: 1.55rem;
+            margin-bottom: 4px;
+        }
+
+        .summary-card span {
+            color: #64748b;
+            font-weight: 700;
+        }
+
+        .report-card {
+            background: white;
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 14px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+        }
+
+        .report-card.status-card-submitted {
+            border-right: 6px solid #f59e0b;
+        }
+
+        .report-card.status-card-in-progress {
+            border-right: 6px solid #3b82f6;
+        }
+
+        .report-card.status-card-done {
+            border-right: 6px solid #10b981;
+        }
+
+        .report-card.status-card-default {
+            border-right: 6px solid #94a3b8;
+        }
+
+        .report-card-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+        }
+
+        .report-title {
+            font-weight: 800;
+            color: var(--dark-blue);
+            font-size: 1.08rem;
+        }
+
+        .status-tools {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-select {
+            min-width: 108px;
+            border-radius: 999px;
+            padding: 8px 14px;
+            font-weight: 800;
+            font-size: 0.95rem;
+            cursor: pointer;
+            outline: none;
+            border: 1px solid transparent;
+            appearance: auto;
+        }
+
+        .status-select.status-submitted {
+            background: #fff7ed;
+            color: #d97706;
+            border-color: #fed7aa;
+        }
+
+        .status-select.status-in-progress {
+            background: #eff6ff;
+            color: #2563eb;
+            border-color: #bfdbfe;
+        }
+
+        .status-select.status-done {
+            background: #ecfdf5;
+            color: #059669;
+            border-color: #a7f3d0;
+        }
+
+        .status-select.status-default {
+            background: #f1f5f9;
+            color: #475569;
+            border-color: #cbd5e1;
+        }
+
+        .report-meta {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 12px;
+            color: #64748b;
+            font-weight: 700;
+        }
+
+        .report-meta span {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 10px 12px;
+        }
+
+        .report-content {
+            color: #334155;
+            line-height: 1.6;
+            white-space: pre-line;
+            background: #fff;
+            padding-top: 4px;
+        }
+
+        .status-timeline {
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .status-timeline-title {
+            font-weight: 800;
+            color: var(--dark-blue);
+            margin-bottom: 10px;
+        }
+
+        .timeline-items {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .timeline-item {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 10px;
+            align-items: center;
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 10px 12px;
+            color: #475569;
+            font-weight: 700;
+        }
+
+        .timeline-status {
+            color: var(--primary-orange);
+            font-weight: 800;
+        }
+
+        .timeline-date {
+            color: #64748b;
+            font-size: 0.92rem;
+        }
+
+        .empty-message {
+            background: white;
+            padding: 20px;
+            border-radius: 18px;
+            color: #64748b;
+            font-weight: 700;
+            border: 1px solid #e2e8f0;
+        }
+
+        @media (max-width: 1000px) {
+            .reports-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .report-meta {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 560px) {
+            .reports-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .report-meta {
+                grid-template-columns: 1fr;
+            }
+
+            .report-card-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .timeline-item {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
+
 <body>
     <div class="dashboard-wrapper">
         <aside class="sidebar" data-sidebar></aside>
@@ -22,34 +236,422 @@
                     </h1>
                     <p class="page-explanation">כאן ניתן לנהל את הדיווחים שהתקבלו, לעקוב אחרי סטטוס הטיפול ולראות פרטים חשובים על כל מקרה.</p>
                 </div>
+
                 <a href="index.html" style="text-decoration:none; color:var(--primary-orange)">חזרה לבית</a>
             </header>
 
+            <section class="reports-summary" id="reportsSummary">
+                <div class="summary-card">
+                    <strong>0</strong>
+                    <span>סה"כ דיווחים</span>
+                </div>
+                <div class="summary-card">
+                    <strong>0</strong>
+                    <span>הוגשו</span>
+                </div>
+                <div class="summary-card">
+                    <strong>0</strong>
+                    <span>בטיפול</span>
+                </div>
+                <div class="summary-card">
+                    <strong>0</strong>
+                    <span>טופלו</span>
+                </div>
+            </section>
+
             <div class="reports-filter">
-                <div class="filter-item"><label>שם קשיש</label><input type="text" placeholder="חיפוש..."></div>
+                <div class="filter-item">
+                    <label>חיפוש חופשי</label>
+                    <input type="text" id="searchInput" placeholder="חיפוש בתוכן הדיווח..." oninput="renderReports()">
+                </div>
+
+                <div class="filter-item">
+                    <label>מספר דיווח</label>
+                    <input type="text" id="reportIdFilter" placeholder="לדוגמה: 39" oninput="renderReports()">
+                </div>
+
+                <div class="filter-item">
+                    <label>מתנדב</label>
+                    <input type="text" id="volunteerFilter" placeholder="מספר מתנדב" oninput="renderReports()">
+                </div>
+
+                <div class="filter-item">
+                    <label>קשיש</label>
+                    <input type="text" id="elderlyFilter" placeholder="מספר קשיש" oninput="renderReports()">
+                </div>
+
                 <div class="filter-item">
                     <div class="label-with-help">
                         <label>סטטוס</label>
-                        <button type="button" class="help-icon" data-tooltip="הסטטוס מציג באיזה שלב הטיפול נמצא: חדש, בטיפול או טופל." aria-label="מידע נוסף">?</button>
+                        <button type="button" class="help-icon" data-tooltip="סינון לפי סטטוס הטיפול בדיווח." aria-label="מידע נוסף">?</button>
                     </div>
-                    <select>
-                        <option>הכל</option>
-                        <option>פתוח</option>
-                        <option>בטיפול</option>
-                        <option>טופל</option>
+
+                    <select id="statusFilter" onchange="renderReports()">
+                        <option value="הכל">הכל</option>
+                        <option value="הוגש">הוגש</option>
+                        <option value="בטיפול">בטיפול</option>
+                        <option value="טופל">טופל</option>
                     </select>
                 </div>
-                <button style="background:var(--primary-orange); color:white; border:none; padding:10px 20px; border-radius:10px; cursor:pointer;">חפש</button>
-                <button type="button" class="help-icon" data-tooltip="הסינון עוזר למצוא במהירות דיווחים לפי שם או סטטוס טיפול." aria-label="מידע נוסף">?</button>
+
+                <div class="filter-item">
+                    <label>דחיפות</label>
+                    <select id="urgencyFilter" onchange="renderReports()">
+                        <option value="הכל">הכל</option>
+                        <option value="נמוכה">נמוכה</option>
+                        <option value="בינונית">בינונית</option>
+                        <option value="גבוהה">גבוהה</option>
+                    </select>
+                </div>
+
+                <div class="filter-item">
+                    <label>מתאריך</label>
+                    <input type="date" id="dateFromFilter" onchange="renderReports()">
+                </div>
+
+                <div class="filter-item">
+                    <label>עד תאריך</label>
+                    <input type="date" id="dateToFilter" onchange="renderReports()">
+                </div>
+
+                <button onclick="loadReports()" style="background:var(--primary-orange); color:white; border:none; padding:10px 20px; border-radius:10px; cursor:pointer;">
+                    רענן
+                </button>
+
+                <button onclick="clearFilters()" style="background:white; color:#334155; border:1px solid #e2e8f0; padding:10px 20px; border-radius:10px; cursor:pointer;">
+                    נקה סינון
+                </button>
+
+                <button type="button" class="help-icon" data-tooltip="אפשר לסנן לפי כמה תנאים ביחד: סטטוס, דחיפות, תאריך, מספר דיווח, מתנדב או קשיש." aria-label="מידע נוסף">?</button>
             </div>
 
-            <div class="report-list">
-                <div class="report-row"><span>אברהם כהן</span><strong>בטיפול</strong></div>
-                <div class="report-row"><span>שרה לוי</span><strong>טופל</strong></div>
+            <div class="report-list" id="reportList">
+                <div class="empty-message">טוען דיווחים...</div>
             </div>
         </main>
     </div>
+
     <script src="sidebar.js"></script>
     <script src="help-tooltips.js"></script>
+
+    <script>
+        let reportsData = [];
+
+        async function loadReports() {
+            const reportList = document.getElementById('reportList');
+            reportList.innerHTML = '<div class="empty-message">טוען דיווחים...</div>';
+
+            try {
+                const response = await fetch('./api/reports.php');
+                const data = await response.json();
+
+                if (!data.success) {
+                    reportList.innerHTML = '<div class="empty-message">לא הצלחנו לטעון דיווחים.</div>';
+                    return;
+                }
+
+                reportsData = data.reports || [];
+                renderReports();
+
+            } catch (error) {
+                console.error('REPORTS LOAD ERROR:', error);
+                reportList.innerHTML = '<div class="empty-message">שגיאה בטעינת הדיווחים.</div>';
+            }
+        }
+
+        function renderReports() {
+            const reportList = document.getElementById('reportList');
+
+            const searchValue = document.getElementById('searchInput').value.trim().toLowerCase();
+            const reportIdValue = document.getElementById('reportIdFilter').value.trim().toLowerCase();
+            const volunteerValue = document.getElementById('volunteerFilter').value.trim().toLowerCase();
+            const elderlyValue = document.getElementById('elderlyFilter').value.trim().toLowerCase();
+            const statusValue = document.getElementById('statusFilter').value;
+            const urgencyValue = document.getElementById('urgencyFilter').value;
+            const dateFromValue = document.getElementById('dateFromFilter').value;
+            const dateToValue = document.getElementById('dateToFilter').value;
+
+            const filteredReports = reportsData.filter(report => {
+                const status = normalizeStatus(report.status || '');
+                const reportDate = getDateOnly(report.created_at || '');
+
+                const content = String(report.content || '').toLowerCase();
+                const reportId = String(report.id || '').toLowerCase();
+                const volunteerId = String(report.volunteer_id || '').toLowerCase();
+                const elderlyId = String(report.elderly_id || '').toLowerCase();
+                const urgency = String(report.urgency || '');
+
+                const matchesFreeText = !searchValue || content.includes(searchValue);
+                const matchesReportId = !reportIdValue || reportId.includes(reportIdValue);
+                const matchesVolunteer = !volunteerValue || volunteerId.includes(volunteerValue);
+                const matchesElderly = !elderlyValue || elderlyId.includes(elderlyValue);
+                const matchesStatus = statusValue === 'הכל' || status === statusValue;
+                const matchesUrgency = urgencyValue === 'הכל' || urgency === urgencyValue;
+                const matchesDateFrom = !dateFromValue || reportDate >= dateFromValue;
+                const matchesDateTo = !dateToValue || reportDate <= dateToValue;
+
+                return (
+                    matchesFreeText &&
+                    matchesReportId &&
+                    matchesVolunteer &&
+                    matchesElderly &&
+                    matchesStatus &&
+                    matchesUrgency &&
+                    matchesDateFrom &&
+                    matchesDateTo
+                );
+            });
+
+            renderSummary(filteredReports);
+
+            if (!filteredReports.length) {
+                reportList.innerHTML = '<div class="empty-message">לא נמצאו דיווחים מתאימים.</div>';
+                return;
+            }
+
+            reportList.innerHTML = filteredReports.map(report => {
+                const displayStatus = normalizeStatus(report.status || '');
+                const statusClass = getStatusClass(displayStatus);
+
+                return `
+                    <div class="report-card status-card-${statusClass}">
+                        <div class="report-card-header">
+                            <span class="report-title">דיווח #${escapeHtml(report.id)}</span>
+
+                            <div class="status-tools">
+                                <select class="status-select status-${statusClass}" onchange="updateReportStatus(${Number(report.id)}, this.value)">
+                                    ${statusOption(displayStatus, 'הוגש')}
+                                    ${statusOption(displayStatus, 'בטיפול')}
+                                    ${statusOption(displayStatus, 'טופל')}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="report-meta">
+                            <span>מתנדב: ${escapeHtml(report.volunteer_id || '')}</span>
+                            <span>קשיש: ${escapeHtml(report.elderly_id || '')}</span>
+                            <span>דחיפות: ${escapeHtml(report.urgency || '')}</span>
+                            <span>תאריך יצירה: ${escapeHtml(report.created_at || '')}</span>
+                        </div>
+
+                        <div class="report-content">${escapeHtml(report.content || '')}</div>
+
+                        ${renderStatusTimeline(report.status_history || [], report)}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function updateReportStatus(reportId, newStatus) {
+            try {
+                showPageMessage('מעדכן סטטוס...', 'info');
+
+                const response = await fetch('./api/update_report_status.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        report_id: reportId,
+                        status: newStatus
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    showPageMessage('לא הצלחנו לעדכן את הסטטוס.', 'error');
+                    await loadReports();
+                    return;
+                }
+
+                await loadReports();
+                showPageMessage('הסטטוס עודכן ונשלח מייל לעמותה.', 'success');
+
+            } catch (error) {
+                console.error('STATUS UPDATE ERROR:', error);
+                showPageMessage('שגיאה בעדכון הסטטוס.', 'error');
+                await loadReports();
+            }
+        }
+
+        function renderStatusTimeline(history, report) {
+            let timeline = history || [];
+
+            if (!timeline.length && report && report.status) {
+                timeline = [
+                    {
+                        old_status: '',
+                        new_status: report.status,
+                        created_at: report.created_at
+                    }
+                ];
+            }
+
+            if (!timeline.length) {
+                return '';
+            }
+
+            const items = timeline.map(item => {
+                const oldStatus = normalizeStatus(item.old_status || '');
+                const newStatus = normalizeStatus(item.new_status || '');
+
+                const label = oldStatus
+                    ? `${escapeHtml(oldStatus)} → ${escapeHtml(newStatus)}`
+                    : `${escapeHtml(newStatus)}`;
+
+                return `
+                    <div class="timeline-item">
+                        <span class="timeline-status">${label}</span>
+                        <span class="timeline-date">${escapeHtml(item.created_at || '')}</span>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="status-timeline">
+                    <div class="status-timeline-title">היסטוריית סטטוס</div>
+                    <div class="timeline-items">
+                        ${items}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSummary(reports) {
+            const normalizedReports = reports.map(report => ({
+                ...report,
+                status: normalizeStatus(report.status || '')
+            }));
+
+            const total = normalizedReports.length;
+            const submitted = normalizedReports.filter(report => report.status === 'הוגש').length;
+            const inProgress = normalizedReports.filter(report => report.status === 'בטיפול').length;
+            const done = normalizedReports.filter(report => report.status === 'טופל').length;
+
+            const summary = document.getElementById('reportsSummary');
+
+            summary.innerHTML = `
+                <div class="summary-card">
+                    <strong>${total}</strong>
+                    <span>סה"כ דיווחים מוצגים</span>
+                </div>
+                <div class="summary-card">
+                    <strong>${submitted}</strong>
+                    <span>הוגשו</span>
+                </div>
+                <div class="summary-card">
+                    <strong>${inProgress}</strong>
+                    <span>בטיפול</span>
+                </div>
+                <div class="summary-card">
+                    <strong>${done}</strong>
+                    <span>טופלו</span>
+                </div>
+            `;
+        }
+
+        function normalizeStatus(status) {
+            if (status === 'חדש' || status === 'פתוח') {
+                return 'הוגש';
+            }
+
+            if (status === 'סגור' || status === 'נסגר') {
+                return 'טופל';
+            }
+
+            return status;
+        }
+
+        function getStatusClass(status) {
+            if (status === 'הוגש') {
+                return 'submitted';
+            }
+
+            if (status === 'בטיפול') {
+                return 'in-progress';
+            }
+
+            if (status === 'טופל') {
+                return 'done';
+            }
+
+            return 'default';
+        }
+
+        function statusOption(currentStatus, value) {
+            const selected = currentStatus === value ? 'selected' : '';
+            return `<option value="${escapeHtml(value)}" ${selected}>${escapeHtml(value)}</option>`;
+        }
+
+        function getDateOnly(dateTimeValue) {
+            if (!dateTimeValue) {
+                return '';
+            }
+
+            return String(dateTimeValue).substring(0, 10);
+        }
+
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('reportIdFilter').value = '';
+            document.getElementById('volunteerFilter').value = '';
+            document.getElementById('elderlyFilter').value = '';
+            document.getElementById('statusFilter').value = 'הכל';
+            document.getElementById('urgencyFilter').value = 'הכל';
+            document.getElementById('dateFromFilter').value = '';
+            document.getElementById('dateToFilter').value = '';
+
+            renderReports();
+        }
+
+        function showPageMessage(message, type) {
+            let box = document.getElementById('pageStatusMessage');
+
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'pageStatusMessage';
+                box.style.position = 'fixed';
+                box.style.left = '24px';
+                box.style.bottom = '24px';
+                box.style.zIndex = '9999';
+                box.style.padding = '12px 18px';
+                box.style.borderRadius = '14px';
+                box.style.fontWeight = '800';
+                box.style.boxShadow = '0 12px 30px rgba(15,23,42,0.18)';
+                document.body.appendChild(box);
+            }
+
+            box.textContent = message;
+
+            if (type === 'success') {
+                box.style.background = '#ecfdf5';
+                box.style.color = '#059669';
+            } else if (type === 'error') {
+                box.style.background = '#fef2f2';
+                box.style.color = '#dc2626';
+            } else {
+                box.style.background = '#eff6ff';
+                box.style.color = '#2563eb';
+            }
+
+            box.style.display = 'block';
+
+            setTimeout(() => {
+                box.style.display = 'none';
+            }, 3500);
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        loadReports();
+    </script>
 </body>
 </html>

@@ -2,6 +2,7 @@
 session_start();
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/email.php';
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -795,6 +796,58 @@ function getAssignedElderlyForVolunteer($pdo, $volunteerId) {
     return $stmt->fetch();
 }
 
+function getEntityById($pdo, $tableName, $id) {
+    $allowedTables = ["volunteers", "users", "elderly"];
+
+    if (!in_array($tableName, $allowedTables, true)) {
+        return null;
+    }
+
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM {$tableName} WHERE id = :id LIMIT 1");
+        $stmt->execute([':id' => $id]);
+
+        $row = $stmt->fetch();
+        return $row ?: null;
+    } catch (Throwable $e) {
+        error_log("REPORT EMAIL LOOKUP ERROR: " . $e->getMessage());
+        return null;
+    }
+}
+
+function personDisplayName($person) {
+    if (!$person || !is_array($person)) {
+        return "";
+    }
+
+    foreach (["full_name", "name", "display_name"] as $field) {
+        if (!empty($person[$field])) {
+            return $person[$field];
+        }
+    }
+
+    $firstName = $person["first_name"] ?? "";
+    $lastName = $person["last_name"] ?? "";
+
+    return trim($firstName . " " . $lastName);
+}
+
+function getVolunteerNameForEmail($pdo, $volunteerId) {
+    $volunteer = getEntityById($pdo, "volunteers", $volunteerId);
+    $volunteerName = personDisplayName($volunteer);
+
+    if ($volunteerName !== "") {
+        return $volunteerName;
+    }
+
+    if (!empty($volunteer["user_id"])) {
+        $user = getEntityById($pdo, "users", (int)$volunteer["user_id"]);
+        return personDisplayName($user);
+    }
+
+    return "";
+}
+
 function saveReport($pdo, $volunteerId, $elderlyId, $content, $urgency) {
     $stmt = $pdo->prepare("
         INSERT INTO reports
@@ -808,7 +861,7 @@ function saveReport($pdo, $volunteerId, $elderlyId, $content, $urgency) {
         ':elderly_id' => $elderlyId,
         ':content' => $content,
         ':urgency' => $urgency,
-        ':status' => 'חדש',
+        ':status' => 'הוגש',
         ':classification_source' => 'AI'
     ]);
 
@@ -831,13 +884,32 @@ function createReportFromState($pdo, $state, $volunteerId) {
         $content .= "\nניתוח טקסטואלי שאושר מתמונה: " . $state["image_text_analysis"];
     }
 
-    return saveReport(
+    $reportId = saveReport(
         $pdo,
         $volunteerId,
         $elderly["id"],
         $content,
         $state["urgency"] ?? "בינונית"
     );
+
+    try {
+        sendReportCreatedEmail([
+            "report_id" => (string)$reportId,
+            "volunteer_id" => (string)$volunteerId,
+            "volunteer_name" => getVolunteerNameForEmail($pdo, $volunteerId),
+            "elderly_id" => (string)$elderly["id"],
+            "elderly_name" => personDisplayName($elderly),
+            "description" => $content,
+            "urgency" => $state["urgency"] ?? "בינונית",
+            "status" => "הוגש",
+            "created_at" => date("Y-m-d H:i:s"),
+            "category" => $state["category"] ?? "אחר"
+        ]);
+    } catch (Throwable $e) {
+        error_log("REPORT EMAIL ERROR: " . $e->getMessage());
+    }
+
+    return $reportId;
 }
 
 function askForUrgency($state, $prefix = "") {
