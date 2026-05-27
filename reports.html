@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>נקודות חיבור - דוחות</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-logo"><span>חיבורים</span></div>
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-link"><i class="fa-solid fa-house"></i> בית</a>
+                <a href="reports.html" class="nav-link active"><i class="fa-solid fa-file-invoice"></i> דוחות</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <h1>צפייה בדוחות</h1>
+                <a href="index.html" style="text-decoration:none; color:var(--primary-orange)">חזרה לבית</a>
+            </header>
+
+            <div class="reports-filter">
+                <div class="filter-item"><label>שם קשיש</label><input type="text" placeholder="חיפוש..."></div>
+                <div class="filter-item">
+                    <label>סטטוס</label>
+                    <select>
+                        <option>הכל</option>
+                        <option>פתוח</option>
+                        <option>בטיפול</option>
+                        <option>טופל</option>
+                    </select>
+                </div>
+                <button style="background:var(--primary-orange); color:white; border:none; padding:10px 20px; border-radius:10px; cursor:pointer;">חפש</button>
+            </div>
+
+            <div class="report-list">
+                <div class="report-row"><span>אברהם כהן</span><strong>בטיפול</strong></div>
+                <div class="report-row"><span>שרה לוי</span><strong>טופל</strong></div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

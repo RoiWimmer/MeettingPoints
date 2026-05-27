@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>נקודות חיבור - דיווח חכם</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-logo"><span>חיבורים</span></div>
+            <nav class="sidebar-nav">
+                <a href="index.html" class="nav-link"><i class="fa-solid fa-house"></i> בית</a>
+                <a href="chatbot.html" class="nav-link active"><i class="fa-solid fa-comment"></i> צ'אט</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="chat-page-header">
+                    <h1>דיווח חדש</h1>
+            
+                    <div class="chatbot-helper">
+                        <span class="chatbot-helper-text">
+                            הצ׳אטבוט עוזר לאסוף דיווח מסודר מהשטח ולוודא שלא חסרים פרטים חשובים. <br>                             ניתן גם להוסיף תמונה של הבעיה.
+                            
+                        </span>
+                        <br>
+                      
+                        <div class="tooltip-wrapper">
+                            <button type="button" class="tooltip-icon" aria-label="מידע נוסף">?</button>
+                            <div class="tooltip-box">
+                                אפשר לדווח כאן על בעיה שזיהית אצל הקשיש, לצרף פרטים כמו שם, מיקום ודחיפות,
+                                ואפילו גם לצרף תמונה! המערכת תאסוף את המידע בצורה מסודרת כדי להעביר אותו להמשך טיפול.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            
+                <a href="index.html" style="text-decoration:none; color:var(--primary-orange)">חזרה לבית</a>
+            </header>
+
+            <div class="chat-window">
+                <div class="messages-area" id="chat">
+                    <div class="msg bot">שלום יוסי! מה זיהית בשטח אצל הקשיש?</div>
+                </div>
+                <div class="chat-input">
+                    <label for="imageUpload" class="upload-btn" title="העלה תמונה">
+                        <i class="fa-solid fa-image"></i>
+                    </label>
+                    <input type="file" id="imageUpload" accept="image/*" hidden>
+                
+                    <input type="text" id="textIn" placeholder="הקלד דיווח...">
+                
+                    <button onclick="send()" class="send-btn">שלח</button>
+                </div>
+                
+                <div class="upload-preview" id="uploadPreview" style="display:none;">
+                    <span id="uploadFileName"></span>
+                    <button type="button" class="remove-upload-btn" onclick="clearSelectedImage()">הסר</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+   <script>
+
+    function wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function randomDelay(min = 4000, max = 8000) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function addTypingIndicator(chat) {
+        if (document.getElementById('typing-indicator')) return;
+
+        const typingEl = document.createElement('div');
+        typingEl.className = 'msg bot typing-msg';
+        typingEl.id = 'typing-indicator';
+        typingEl.innerHTML = `
+            <span class="typing-text">מקליד</span>
+            <span class="typing-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </span>
+        `;
+        chat.appendChild(typingEl);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    function removeTypingIndicator() {
+        const typingEl = document.getElementById('typing-indicator');
+        if (typingEl) {
+            typingEl.remove();
+        }
+    }
+
+    function startTypingSimulation(chat, totalExpectedWait) {
+        const timers = [];
+        let stopped = false;
+
+        const initialDelay = randomDelay(500, 1600);
+        const mustPause = totalExpectedWait > 10000;
+        const shouldShowAtAll = mustPause || Math.random() < 0.75;
+        const shouldDoPause = mustPause || Math.random() < 0.5;
+
+        const showIndicator = () => {
+            if (stopped) return;
+            addTypingIndicator(chat);
+        };
+
+        const hideIndicator = () => {
+            if (stopped) return;
+            removeTypingIndicator();
+        };
+
+        if (shouldShowAtAll) {
+            timers.push(setTimeout(showIndicator, initialDelay));
+        }
+
+        if (shouldShowAtAll && shouldDoPause) {
+            const latestPauseStart = Math.max(2500, totalExpectedWait - 2500);
+            const pauseStart = randomDelay(3000, latestPauseStart);
+
+            timers.push(setTimeout(() => {
+                hideIndicator();
+
+                timers.push(setTimeout(() => {
+                    showIndicator();
+                }, 1000));
+            }, pauseStart));
+        }
+
+        return {
+            stop() {
+                stopped = true;
+                timers.forEach(clearTimeout);
+                removeTypingIndicator();
+            }
+        };
+    }
+
+    async function send() {
+        console.log("SEND CALLED", new Date().toISOString());
+        
+        if (window.isSending) {
+            console.log("BLOCKED DUPLICATE SEND");
+            return;
+        }
+        window.isSending = true;
+        const input = document.getElementById('textIn');
+        const chat = document.getElementById('chat');
+        const button = document.querySelector('.chat-input button');
+        const imageInput = document.getElementById('imageUpload');
+        const selectedImage = imageInput.files[0];
+        const val = input.value.trim();
+
+        if (!val && !selectedImage) return;
+
+        if (val) {
+            chat.innerHTML += `<div class="msg user">${escapeHtml(val)}</div>`;
+        }
+
+        if (selectedImage) {
+            chat.innerHTML += `<div class="msg user attachment-msg">📎 תמונה צורפה: ${escapeHtml(selectedImage.name)}</div>`;
+        }
+
+        input.value = '';
+        chat.scrollTop = chat.scrollHeight;
+
+        input.disabled = true;
+        button.disabled = true;
+
+        const fakeDelay = randomDelay(7000, 15000);
+        const typingController = startTypingSimulation(chat, fakeDelay);
+        const requestStartedAt = Date.now();
+
+        try {
+            console.log("SENDING REQUEST TO SERVER");
+
+            const formData = new FormData();
+            formData.append('message', val);
+
+            if (selectedImage) {
+                formData.append('image', selectedImage);
+            }
+            console.log("SENDING REQUEST TO SERVER");   
+            const res = await fetch('./api/chat.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            console.log("RESPONSE RECEIVED");
+
+            const rawText = await res.text();
+            console.log('RAW RESPONSE:', rawText);
+
+            let data;
+            try {
+                data = JSON.parse(rawText);
+            } catch (e) {
+                throw new Error('השרת לא החזיר JSON תקין: ' + rawText);
+            }
+
+            if (!res.ok) {
+                throw new Error(data.error || 'שגיאה בבקשה לשרת');
+            }
+
+            const elapsed = Date.now() - requestStartedAt;
+            const remainingDelay = Math.max(0, fakeDelay - elapsed);
+            await wait(remainingDelay);
+
+            typingController.stop();
+
+            if (data.reply) {
+                chat.innerHTML += `<div class="msg bot">${escapeHtml(data.reply)}</div>`;
+            } else {
+                chat.innerHTML += `<div class="msg bot">לא התקבלה תשובה תקינה מהשרת.</div>`;
+            }
+
+        } catch (error) {
+            console.error('CHAT ERROR:', error);
+
+            const elapsed = Date.now() - requestStartedAt;
+            const remainingDelay = Math.max(0, fakeDelay - elapsed);
+            await wait(remainingDelay);
+
+            typingController.stop();
+            chat.innerHTML += `<div class="msg bot">שגיאה: ${escapeHtml(error.message)}</div>`;
+        } finally {
+            window.isSending = false;
+            input.disabled = false;
+            button.disabled = false;
+            clearSelectedImage();
+            input.focus();
+            chat.scrollTop = chat.scrollHeight;
+        }
+    }
+
+    document.getElementById('textIn').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            send();
+        }
+    });
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function clearSelectedImage() {
+        const imageInput = document.getElementById('imageUpload');
+        const uploadPreview = document.getElementById('uploadPreview');
+        const uploadFileName = document.getElementById('uploadFileName');
+
+        imageInput.value = '';
+        uploadFileName.textContent = '';
+        uploadPreview.style.display = 'none';
+    }
+
+    document.getElementById('imageUpload').addEventListener('change', function () {
+        const uploadPreview = document.getElementById('uploadPreview');
+        const uploadFileName = document.getElementById('uploadFileName');
+
+        if (this.files && this.files[0]) {
+            uploadFileName.textContent = 'נבחר קובץ: ' + this.files[0].name;
+            uploadPreview.style.display = 'flex';
+        } else {
+            uploadFileName.textContent = '';
+            uploadPreview.style.display = 'none';
+        }
+    });
+
+    document.getElementById('textIn').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            send();
+        }
+    });
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function clearSelectedImage() {
+        const imageInput = document.getElementById('imageUpload');
+        const uploadPreview = document.getElementById('uploadPreview');
+        const uploadFileName = document.getElementById('uploadFileName');
+    
+        imageInput.value = '';
+        uploadFileName.textContent = '';
+        uploadPreview.style.display = 'none';
+    }
+    
+    document.getElementById('imageUpload').addEventListener('change', function () {
+        const uploadPreview = document.getElementById('uploadPreview');
+        const uploadFileName = document.getElementById('uploadFileName');
+    
+        if (this.files && this.files[0]) {
+            uploadFileName.textContent = 'נבחר קובץ: ' + this.files[0].name;
+            uploadPreview.style.display = 'flex';
+        } else {
+            uploadFileName.textContent = '';
+            uploadPreview.style.display = 'none';
+        }
+    });
+</script>
+</body>
+</html>
