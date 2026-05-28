@@ -332,6 +332,113 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        @media (min-width: 769px) {
+            body.people-page .people-mobile-list {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body.people-page .table-wrap {
+                overflow-x: hidden;
+            }
+
+            body.people-page .table-wrap table {
+                display: none;
+            }
+
+            body.people-page .people-mobile-list {
+                display: grid;
+                gap: 0;
+                width: 100%;
+                max-width: 100%;
+                overflow: hidden;
+                border: 1px solid #f1f5f9;
+                border-radius: 14px;
+                background: #ffffff;
+            }
+
+            body.people-page .people-mobile-row {
+                display: grid;
+                gap: 5px;
+                min-width: 0;
+                padding: 10px 11px;
+                border-bottom: 1px solid #f1f5f9;
+            }
+
+            body.people-page .people-mobile-row:last-child {
+                border-bottom: 0;
+            }
+
+            body.people-page .people-mobile-main,
+            body.people-page .people-mobile-meta,
+            body.people-page .people-mobile-extra {
+                min-width: 0;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            body.people-page .people-mobile-main {
+                color: var(--dark-blue);
+                font-weight: 800;
+                line-height: 1.25;
+            }
+
+            body.people-page .people-mobile-id {
+                color: #94a3b8;
+                font-size: 0.82rem;
+                font-weight: 800;
+                margin-inline-start: 6px;
+            }
+
+            body.people-page .people-mobile-meta,
+            body.people-page .people-mobile-extra {
+                color: #64748b;
+                font-size: 0.9rem;
+                font-weight: 700;
+                line-height: 1.35;
+            }
+
+            body.people-page .people-mobile-extra {
+                color: #94a3b8;
+                font-size: 0.84rem;
+            }
+
+            body.people-page .people-mobile-bottom {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                min-width: 0;
+            }
+
+            body.people-page .people-mobile-bottom .people-mobile-extra {
+                flex: 1 1 auto;
+            }
+
+            body.people-page .people-mobile-action {
+                flex: 0 0 auto;
+                min-height: 32px;
+                padding: 6px 9px;
+                border-radius: 10px;
+                font-size: 0.82rem;
+                white-space: nowrap;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body.people-page .people-mobile-row {
+                padding: 9px 10px;
+            }
+
+            body.people-page .people-mobile-meta,
+            body.people-page .people-mobile-extra {
+                font-size: 0.84rem;
+            }
+        }
     </style>
 </head>
 <body class="people-page" data-page="people">
@@ -526,7 +633,89 @@
             `;
         }
 
+        function joinMobileParts(parts, fallback = 'לא צוין') {
+            const cleanParts = parts
+                .map(part => String(part || '').trim())
+                .filter(Boolean);
+
+            return escapeHtml(cleanParts.length ? cleanParts.join(' · ') : fallback);
+        }
+
+        function mobileId(row) {
+            return row.id ? `<span class="people-mobile-id">#${escapeHtml(row.id)}</span>` : '';
+        }
+
+        function renderMobileList(targetId, rows, emptyText, rowTemplate) {
+            const target = document.getElementById(targetId);
+
+            if (!rows.length) {
+                target.innerHTML = `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
+                return;
+            }
+
+            const tableHtml = target.innerHTML;
+            const listHtml = `
+                <div class="people-mobile-list" aria-label="תצוגת מובייל">
+                    ${rows.map(rowTemplate).join('')}
+                </div>
+            `;
+
+            target.innerHTML = `${tableHtml}${listHtml}`;
+        }
+
+        function renderVolunteerMobileRow(row) {
+            const assigned = row.assigned_elderly_id
+                ? `קשיש משויך: ${row.assigned_elderly_name || 'קשיש'} (#${row.assigned_elderly_id})`
+                : 'ללא שיוך';
+
+            return `
+                <div class="people-mobile-row">
+                    <div class="people-mobile-main">${escapeHtml(fullName(row))}${mobileId(row)}</div>
+                    <div class="people-mobile-meta">${joinMobileParts([row.email, row.phone, row.city])}</div>
+                    <div class="people-mobile-extra">${escapeHtml(`${isActive(row) ? 'פעיל' : 'לא פעיל'} · ${assigned}`)}</div>
+                </div>
+            `;
+        }
+
+        function renderElderlyMobileRow(row) {
+            const address = [row.address, row.apartment].filter(Boolean).join(', ');
+            const assigned = row.assigned_volunteer_id
+                ? `מתנדב: ${row.assigned_volunteer_name || 'מתנדב'} (#${row.assigned_volunteer_id})`
+                : 'ללא שיוך';
+
+            return `
+                <div class="people-mobile-row">
+                    <div class="people-mobile-main">${escapeHtml(fullName(row))}${mobileId(row)}</div>
+                    <div class="people-mobile-meta">${joinMobileParts([row.city, address, row.phone])}</div>
+                    <div class="people-mobile-extra">${escapeHtml(assigned)}</div>
+                </div>
+            `;
+        }
+
+        function renderAssignmentMobileRow(row) {
+            return `
+                <div class="people-mobile-row">
+                    <div class="people-mobile-main">${escapeHtml(row.volunteer_name || 'מתנדב')} ↔ ${escapeHtml(row.elderly_name || 'קשיש')}</div>
+                    <div class="people-mobile-meta">${joinMobileParts([
+                        row.volunteer_id ? `מתנדב #${row.volunteer_id}` : '',
+                        row.elderly_id ? `קשיש #${row.elderly_id}` : '',
+                        row.elderly_city
+                    ])}</div>
+                    <div class="people-mobile-bottom">
+                        <div class="people-mobile-extra">${joinMobileParts([row.start_date || row.created_at], '')}</div>
+                        <button type="button" class="ghost-btn people-mobile-action" onclick="unassign(${Number(row.id)})">
+                            <i class="fa-solid fa-link-slash"></i>
+                            בטל
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
         function renderVolunteersTable() {
+            const rows = peopleData.volunteers || [];
+            const emptyText = 'אין מתנדבים להצגה עבור העמותה המחוברת.';
+
             renderTable('volunteersTable', [
                 { label: 'שם מלא', value: row => escapeHtml(fullName(row)) },
                 { label: 'אימייל', value: row => escapeHtml(row.email || '') },
@@ -543,10 +732,14 @@
                         ? escapeHtml(`${row.assigned_elderly_name || 'קשיש'} (#${row.assigned_elderly_id})`)
                         : '<span class="muted">ללא שיוך</span>'
                 }
-            ], peopleData.volunteers || [], 'אין מתנדבים להצגה עבור העמותה המחוברת.');
+            ], rows, emptyText);
+            renderMobileList('volunteersTable', rows, emptyText, renderVolunteerMobileRow);
         }
 
         function renderElderlyTable() {
+            const rows = peopleData.elderly || [];
+            const emptyText = 'אין קשישים להצגה. קשישים מוצגים רק אם הם משויכים למתנדבי העמותה או מופיעים בדוחות של מתנדבי העמותה.';
+
             renderTable('elderlyTable', [
                 { label: 'שם מלא', value: row => escapeHtml(fullName(row)) },
                 { label: 'עיר', value: row => escapeHtml(row.city || '') },
@@ -559,10 +752,14 @@
                         ? escapeHtml(`${row.assigned_volunteer_name || 'מתנדב'} (#${row.assigned_volunteer_id})`)
                         : '<span class="muted">ללא שיוך</span>'
                 }
-            ], peopleData.elderly || [], 'אין קשישים להצגה. קשישים מוצגים רק אם הם משויכים למתנדבי העמותה או מופיעים בדוחות של מתנדבי העמותה.');
+            ], rows, emptyText);
+            renderMobileList('elderlyTable', rows, emptyText, renderElderlyMobileRow);
         }
 
         function renderAssignmentsTable() {
+            const rows = peopleData.assignments || [];
+            const emptyText = 'אין שיוכים פעילים להצגה.';
+
             renderTable('assignmentsTable', [
                 { label: 'מתנדב', value: row => escapeHtml(`${row.volunteer_name || 'מתנדב'} (#${row.volunteer_id})`) },
                 { label: 'קשיש', value: row => escapeHtml(`${row.elderly_name || 'קשיש'} (#${row.elderly_id})`) },
@@ -577,7 +774,8 @@
                         </button>
                     `
                 }
-            ], peopleData.assignments || [], 'אין שיוכים פעילים להצגה.');
+            ], rows, emptyText);
+            renderMobileList('assignmentsTable', rows, emptyText, renderAssignmentMobileRow);
         }
 
         function optionText(row, kind) {

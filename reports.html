@@ -266,65 +266,72 @@
                     <input type="text" id="searchInput" placeholder="חיפוש בתוכן הדיווח..." oninput="renderReports()">
                 </div>
 
-                <div class="filter-item">
-                    <label>מספר דיווח</label>
-                    <input type="text" id="reportIdFilter" placeholder="לדוגמה: RPT-0041" oninput="renderReports()">
-                </div>
+                <button type="button" class="advanced-filter-toggle" aria-expanded="false" aria-controls="advancedReportsFilters" onclick="toggleAdvancedFilters(this)">
+                    <span>חיפוש מתקדם</span>
+                    <span class="advanced-filter-toggle-icon" aria-hidden="true">⌄</span>
+                </button>
 
-                <div class="filter-item">
-                    <label>מתנדב</label>
-                    <input type="text" id="volunteerFilter" placeholder="מספר מתנדב" oninput="renderReports()">
-                </div>
-
-                <div class="filter-item">
-                    <label>קשיש</label>
-                    <input type="text" id="elderlyFilter" placeholder="מספר קשיש" oninput="renderReports()">
-                </div>
-
-                <div class="filter-item">
-                    <div class="label-with-help">
-                        <label>סטטוס</label>
-                        <button type="button" class="help-icon" data-tooltip="סינון לפי סטטוס הטיפול בדיווח." aria-label="מידע נוסף">?</button>
+                <div class="reports-advanced-filters is-collapsed" id="advancedReportsFilters">
+                    <div class="filter-item">
+                        <label>מספר דיווח</label>
+                        <input type="text" id="reportIdFilter" placeholder="לדוגמה: RPT-0041" oninput="renderReports()">
                     </div>
 
-                    <select id="statusFilter" onchange="renderReports()">
-                        <option value="הכל">הכל</option>
-                        <option value="הוגש">הוגש</option>
-                        <option value="בטיפול">בטיפול</option>
-                        <option value="טופל">טופל</option>
-                    </select>
+                    <div class="filter-item">
+                        <label>מתנדב</label>
+                        <input type="text" id="volunteerFilter" placeholder="מספר מתנדב" oninput="renderReports()">
+                    </div>
+
+                    <div class="filter-item">
+                        <label>קשיש</label>
+                        <input type="text" id="elderlyFilter" placeholder="מספר קשיש" oninput="renderReports()">
+                    </div>
+
+                    <div class="filter-item">
+                        <div class="label-with-help">
+                            <label>סטטוס</label>
+                            <button type="button" class="help-icon" data-tooltip="סינון לפי סטטוס הטיפול בדיווח." aria-label="מידע נוסף">?</button>
+                        </div>
+
+                        <select id="statusFilter" onchange="renderReports()">
+                            <option value="הכל">הכל</option>
+                            <option value="הוגש">הוגש</option>
+                            <option value="בטיפול">בטיפול</option>
+                            <option value="טופל">טופל</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-item">
+                        <label>דחיפות</label>
+                        <select id="urgencyFilter" onchange="renderReports()">
+                            <option value="הכל">הכל</option>
+                            <option value="נמוכה">נמוכה</option>
+                            <option value="בינונית">בינונית</option>
+                            <option value="גבוהה">גבוהה</option>
+                            <option value="קריטית">קריטית</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-item">
+                        <label>מתאריך</label>
+                        <input type="date" id="dateFromFilter" onchange="renderReports()">
+                    </div>
+
+                    <div class="filter-item">
+                        <label>עד תאריך</label>
+                        <input type="date" id="dateToFilter" onchange="renderReports()">
+                    </div>
+
+                    <button onclick="loadReports()" style="background:var(--primary-orange); color:white; border:none; padding:10px 20px; border-radius:10px; cursor:pointer;">
+                        רענן
+                    </button>
+
+                    <button onclick="clearFilters()" style="background:white; color:#334155; border:1px solid #e2e8f0; padding:10px 20px; border-radius:10px; cursor:pointer;">
+                        נקה סינון
+                    </button>
+
+                    <button type="button" class="help-icon" data-tooltip="אפשר לסנן לפי כמה תנאים ביחד: סטטוס, דחיפות, תאריך, מספר דיווח, מתנדב או קשיש." aria-label="מידע נוסף">?</button>
                 </div>
-
-                <div class="filter-item">
-                    <label>דחיפות</label>
-                    <select id="urgencyFilter" onchange="renderReports()">
-                        <option value="הכל">הכל</option>
-                        <option value="נמוכה">נמוכה</option>
-                        <option value="בינונית">בינונית</option>
-                        <option value="גבוהה">גבוהה</option>
-                        <option value="קריטית">קריטית</option>
-                    </select>
-                </div>
-
-                <div class="filter-item">
-                    <label>מתאריך</label>
-                    <input type="date" id="dateFromFilter" onchange="renderReports()">
-                </div>
-
-                <div class="filter-item">
-                    <label>עד תאריך</label>
-                    <input type="date" id="dateToFilter" onchange="renderReports()">
-                </div>
-
-                <button onclick="loadReports()" style="background:var(--primary-orange); color:white; border:none; padding:10px 20px; border-radius:10px; cursor:pointer;">
-                    רענן
-                </button>
-
-                <button onclick="clearFilters()" style="background:white; color:#334155; border:1px solid #e2e8f0; padding:10px 20px; border-radius:10px; cursor:pointer;">
-                    נקה סינון
-                </button>
-
-                <button type="button" class="help-icon" data-tooltip="אפשר לסנן לפי כמה תנאים ביחד: סטטוס, דחיפות, תאריך, מספר דיווח, מתנדב או קשיש." aria-label="מידע נוסף">?</button>
             </div>
 
             <div class="report-list" id="reportList">
@@ -617,6 +624,14 @@
             }
 
             return String(dateTimeValue).substring(0, 10);
+        }
+
+        function toggleAdvancedFilters(button) {
+            const panel = document.getElementById(button.getAttribute('aria-controls'));
+            if (!panel) return;
+
+            const isCollapsed = panel.classList.toggle('is-collapsed');
+            button.setAttribute('aria-expanded', String(!isCollapsed));
         }
 
         function clearFilters() {

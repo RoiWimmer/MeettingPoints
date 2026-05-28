@@ -36,6 +36,11 @@
             align-items: start;
         }
 
+        .mobile-elderly-summary,
+        .mobile-title-text {
+            display: none;
+        }
+
         .my-elderly-card {
             background: white;
             border: 1px solid #e2e8f0;
@@ -246,15 +251,274 @@
             }
         }
 
-        @media (max-width: 620px) {
-            .detail-grid,
-            .quick-actions {
-                grid-template-columns: 1fr;
+        @media (max-width: 768px) {
+            #elderlyContent {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .my-elderly-header h1 {
+                font-size: 1.55rem;
+                margin-bottom: 4px;
+            }
+
+            .my-elderly-header p {
+                font-size: 0.95rem;
+                line-height: 1.45;
+            }
+
+            .mobile-elderly-summary {
+                display: block;
+                order: 1;
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 16px;
+                padding: 14px;
+                margin-bottom: 12px;
+                box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
+            }
+
+            .mobile-summary-head {
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
+                gap: 12px;
+                margin-bottom: 10px;
+            }
+
+            .mobile-summary-name {
+                margin: 0;
+                color: var(--dark-blue);
+                font-size: 1.25rem;
+                font-weight: 800;
+                line-height: 1.25;
+            }
+
+            .mobile-summary-city {
+                color: var(--text-muted);
+                font-size: 0.9rem;
+                font-weight: 800;
+                white-space: nowrap;
+            }
+
+            .mobile-summary-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px 10px;
+                margin-bottom: 12px;
+            }
+
+            .mobile-summary-item {
+                min-width: 0;
+            }
+
+            .mobile-summary-item span {
+                display: block;
+                color: var(--text-muted);
+                font-size: 0.78rem;
+                font-weight: 800;
+                margin-bottom: 2px;
+            }
+
+            .mobile-summary-item strong {
+                display: block;
+                color: #334155;
+                font-size: 0.95rem;
+                font-weight: 800;
+                line-height: 1.3;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .mobile-summary-action {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                min-height: 42px;
+                border-radius: 12px;
+                background: var(--primary-orange);
+                color: white;
+                font-weight: 800;
+                text-decoration: none;
+                box-shadow: 0 4px 10px rgba(249, 115, 22, 0.18);
+            }
+
+            .my-elderly-layout {
+                display: contents;
+            }
+
+            .my-elderly-layout > div {
+                display: contents;
+            }
+
+            .my-elderly-card {
+                border-radius: 16px;
+                padding: 14px;
+                box-shadow: 0 3px 8px rgba(15, 23, 42, 0.05);
+            }
+
+            .my-elderly-card h2 {
+                margin-bottom: 10px;
+                font-size: 1.05rem;
+                gap: 8px;
+            }
+
+            .contact-card .elderly-name {
+                display: none;
+            }
+
+            .contact-card .section-title-text {
+                display: none;
+            }
+
+            .contact-card .mobile-title-text {
+                display: inline;
+            }
+
+            .recent-card {
+                order: 2;
+            }
+
+            .important-card {
+                order: 3;
+            }
+
+            .contact-card {
+                order: 4;
+            }
+
+            .actions-card {
+                order: 5;
+            }
+
+            .reports-card {
+                margin-top: 0;
+            }
+
+            .detail-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .detail-item {
+                border-radius: 12px;
+                padding: 8px 9px;
+                background: #f8fafc;
+            }
+
+            .detail-item span {
+                font-size: 0.78rem;
+                margin-bottom: 2px;
+            }
+
+            .detail-item strong {
+                font-size: 0.9rem;
+                line-height: 1.3;
+            }
+
+            .important-list {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .important-item {
+                border-radius: 12px;
+                padding: 9px;
+                min-height: 74px;
+            }
+
+            .important-item span {
+                font-size: 0.78rem;
+                margin-bottom: 3px;
+            }
+
+            .important-item strong {
+                display: -webkit-box;
+                color: #334155;
+                font-size: 0.9rem;
+                line-height: 1.35;
+                overflow: hidden;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+            }
+
+            .recent-reports {
+                gap: 8px;
+            }
+
+            .recent-report {
+                border-right-width: 4px;
+                border-radius: 12px;
+                padding: 10px;
+            }
+
+            .recent-report:nth-child(n + 4) {
+                display: none;
             }
 
             .recent-report-top {
+                gap: 8px;
+                margin-bottom: 6px;
+                font-size: 0.84rem;
+            }
+
+            .report-badges {
+                gap: 6px;
+            }
+
+            .report-badge {
+                padding: 4px 8px;
+                font-size: 0.78rem;
+            }
+
+            .recent-report p {
+                display: -webkit-box;
+                font-size: 0.9rem;
+                line-height: 1.35;
+                overflow: hidden;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+            }
+
+            .quick-actions {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .quick-action {
+                min-height: 42px;
+                border-radius: 12px;
+                padding: 9px;
+                gap: 7px;
+                font-size: 0.9rem;
+                line-height: 1.2;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .recent-report-top {
                 align-items: flex-start;
                 flex-direction: column;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .my-elderly-card {
+                padding: 12px;
+            }
+
+            .mobile-summary-grid,
+            .detail-grid,
+            .important-list,
+            .quick-actions {
+                gap: 7px;
+            }
+
+            .quick-action {
+                font-size: 0.86rem;
             }
         }
     </style>
@@ -280,27 +544,52 @@
             <div id="errorState" class="state-card error hidden"></div>
 
             <section id="elderlyContent" class="hidden" aria-live="polite">
+                <article class="mobile-elderly-summary" aria-label="תקציר פרטי הקשיש">
+                    <div class="mobile-summary-head">
+                        <h2 class="mobile-summary-name" id="summaryName"></h2>
+                        <span class="mobile-summary-city" id="summaryCity"></span>
+                    </div>
+                    <div class="mobile-summary-grid">
+                        <div class="mobile-summary-item">
+                            <span>טלפון</span>
+                            <strong id="summaryPhone"></strong>
+                        </div>
+                        <div class="mobile-summary-item">
+                            <span>איש קשר משפחתי</span>
+                            <strong id="summaryFamilyContact"></strong>
+                        </div>
+                    </div>
+                    <a class="mobile-summary-action" href="chatbot.html?source=my_elderly">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        <span>דווח על צורך חדש</span>
+                    </a>
+                </article>
+
                 <div class="my-elderly-layout">
                     <div>
-                        <article class="my-elderly-card">
-                            <h2><i class="fa-solid fa-user"></i> פרטי קשיש</h2>
+                        <article class="my-elderly-card contact-card">
+                            <h2>
+                                <i class="fa-solid fa-user"></i>
+                                <span class="section-title-text">פרטי קשיש</span>
+                                <span class="mobile-title-text">פרטי קשר מלאים</span>
+                            </h2>
                             <p class="elderly-name" id="elderlyName"></p>
                             <div class="detail-grid" id="detailsGrid"></div>
                         </article>
 
-                        <article class="my-elderly-card reports-card" id="reportsSection">
+                        <article class="my-elderly-card reports-card recent-card" id="reportsSection">
                             <h2><i class="fa-solid fa-clock-rotate-left"></i> דיווחים אחרונים</h2>
                             <div class="recent-reports" id="recentReports"></div>
                         </article>
                     </div>
 
                     <div>
-                        <article class="my-elderly-card">
+                        <article class="my-elderly-card important-card">
                             <h2><i class="fa-solid fa-circle-exclamation"></i> מידע חשוב</h2>
                             <div class="important-list" id="importantList"></div>
                         </article>
 
-                        <article class="my-elderly-card reports-card">
+                        <article class="my-elderly-card reports-card actions-card">
                             <h2><i class="fa-solid fa-bolt"></i> פעולות מהירות</h2>
                             <div class="quick-actions">
                                 <a class="quick-action primary" href="chatbot.html?source=my_elderly" id="newReportAction">
@@ -455,6 +744,11 @@
                 : '';
 
             document.getElementById('elderlyName').textContent = fullName || 'שם לא צוין';
+            document.getElementById('summaryName').textContent = fullName || 'שם לא צוין';
+            document.getElementById('summaryCity').textContent = valueOrDash(elderly.city);
+            document.getElementById('summaryPhone').textContent = valueOrDash(elderly.phone);
+            document.getElementById('summaryFamilyContact').textContent = valueOrDash(elderly.familyContact);
+
             document.getElementById('detailsGrid').innerHTML = [
                 detailItem('שם מלא', fullName),
                 detailItem('עיר', elderly.city),

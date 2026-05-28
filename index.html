@@ -295,90 +295,193 @@
             }
         }
 
-        @media (max-width: 760px) {
-            .manager-hero {
+        @media (max-width: 768px) {
+            body.is-manager-home .manager-hero {
                 align-items: flex-start;
-                flex-direction: column;
-                gap: 14px;
-                margin-bottom: 16px;
-                padding: 18px 16px;
+                gap: 10px;
+                margin-bottom: 12px;
+                padding: 14px;
                 border-radius: 16px;
             }
 
-            .manager-hero h1 {
-                font-size: 1.48rem;
+            body.is-manager-home .manager-hero > div:first-child {
+                min-width: 0;
+            }
+
+            body.is-manager-home .manager-hero h1 {
+                font-size: 1.28rem;
                 line-height: 1.22;
+                margin-bottom: 4px;
             }
 
-            .manager-hero p {
-                font-size: 0.95rem;
-                line-height: 1.45;
+            body.is-manager-home .manager-hero p {
+                display: -webkit-box;
+                font-size: 0.88rem;
+                line-height: 1.38;
+                max-width: none;
+                overflow: hidden;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
             }
 
-            .manager-hero-icon {
-                width: 52px;
-                height: 52px;
-                border-radius: 15px;
-                font-size: 1.35rem;
+            body.is-manager-home .manager-hero-icon {
+                width: 42px;
+                height: 42px;
+                border-radius: 13px;
+                font-size: 1.08rem;
+                box-shadow: 0 8px 16px rgba(241, 163, 64, 0.18);
             }
 
-            .manager-kpi-grid {
-                grid-template-columns: 1fr;
-                gap: 12px;
-                margin-bottom: 16px;
+            body.is-manager-home .manager-kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+                margin-bottom: 12px;
             }
 
-            .manager-kpi-card {
-                min-height: 96px;
-                padding: 16px;
-                border-radius: 16px;
-            }
-
-            .manager-kpi-value {
-                font-size: 1.65rem;
-            }
-
-            .manager-panel {
-                padding: 16px;
-                border-radius: 16px;
-            }
-
-            .manager-panel h2 {
-                font-size: 1.16rem;
-                line-height: 1.3;
-                margin-bottom: 14px;
-            }
-
-            .status-row {
-                grid-template-columns: minmax(78px, 102px) 1fr 34px;
+            body.is-manager-home .manager-kpi-card {
+                min-height: 82px;
+                padding: 11px;
+                border-radius: 14px;
                 gap: 8px;
             }
 
-            .status-name,
-            .status-number {
-                font-size: 0.9rem;
-            }
-
-            .attention-card {
-                grid-template-columns: 1fr;
-                padding: 14px;
-                border-radius: 14px;
-            }
-
-            .urgency-pill {
-                width: fit-content;
-                min-height: 36px;
-                display: inline-flex;
+            body.is-manager-home .manager-kpi-top {
+                gap: 8px;
                 align-items: center;
             }
 
-            .manager-home-message {
-                margin-bottom: 14px;
-                border-radius: 14px;
+            body.is-manager-home .manager-kpi-icon {
+                width: 32px;
+                height: 32px;
+                border-radius: 10px;
+                font-size: 0.86rem;
             }
 
-            .manager-dashboard-grid {
-                gap: 14px;
+            body.is-manager-home .manager-kpi-value {
+                font-size: 1.38rem;
+            }
+
+            body.is-manager-home .manager-kpi-label {
+                font-size: 0.86rem;
+                line-height: 1.22;
+            }
+
+            body.is-manager-home .manager-panel {
+                padding: 13px;
+                border-radius: 16px;
+            }
+
+            body.is-manager-home .manager-panel h2 {
+                font-size: 1.02rem;
+                line-height: 1.3;
+                margin-bottom: 10px;
+                gap: 8px;
+            }
+
+            body.is-manager-home .status-breakdown {
+                gap: 9px;
+            }
+
+            body.is-manager-home .status-row {
+                grid-template-columns: minmax(72px, 96px) 1fr 28px;
+                gap: 8px;
+            }
+
+            body.is-manager-home .status-name,
+            body.is-manager-home .status-number {
+                font-size: 0.84rem;
+            }
+
+            body.is-manager-home .status-track {
+                height: 7px;
+            }
+
+            body.is-manager-home .attention-list {
+                gap: 8px;
+            }
+
+            body.is-manager-home .attention-card {
+                grid-template-columns: 1fr;
+                gap: 7px;
+                padding: 10px 11px;
+                border-radius: 12px;
+                border-right-width: 4px;
+                align-items: start;
+            }
+
+            body.is-manager-home .attention-card:nth-of-type(n + 4) {
+                display: none;
+            }
+
+            body.is-manager-home .attention-title {
+                display: -webkit-box;
+                margin-bottom: 5px;
+                font-size: 0.92rem;
+                line-height: 1.3;
+                overflow: hidden;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+            }
+
+            body.is-manager-home .attention-meta {
+                gap: 5px 8px;
+                font-size: 0.8rem;
+                line-height: 1.25;
+            }
+
+            body.is-manager-home .attention-meta span {
+                display: block;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            body.is-manager-home .urgency-pill {
+                width: fit-content;
+                min-height: 0;
+                padding: 4px 8px;
+                display: inline-flex;
+                align-items: center;
+                font-size: 0.78rem;
+            }
+
+            body.is-manager-home .manager-home-message {
+                margin-bottom: 10px;
+                border-radius: 12px;
+                padding: 9px 11px;
+                font-size: 0.86rem;
+            }
+
+            body.is-manager-home .manager-dashboard-grid {
+                gap: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body.is-manager-home .manager-hero {
+                padding: 12px;
+            }
+
+            body.is-manager-home .manager-kpi-grid {
+                gap: 7px;
+            }
+
+            body.is-manager-home .manager-kpi-card {
+                min-height: 78px;
+                padding: 10px;
+            }
+
+            body.is-manager-home .manager-kpi-value {
+                font-size: 1.28rem;
+            }
+
+            body.is-manager-home .manager-kpi-label {
+                font-size: 0.82rem;
+            }
+
+            body.is-manager-home .manager-panel {
+                padding: 12px;
             }
         }
     </style>
